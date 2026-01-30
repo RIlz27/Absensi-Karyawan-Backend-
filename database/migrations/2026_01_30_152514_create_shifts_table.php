@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['Karyawan', 'Admin'])->default('Karyawan');
-            $table->boolean('is_active')->default(true);
+        Schema::create('shift', function (Blueprint $table) {
+            $table->id();
+            $table->string('nama_shift');
+            $table->time('jam_mulai');
+            $table->time('jam_selesai');
+            $table->integer('toleransi_menit')->default(0);
+            $table->timestamps();
         });
     }
 
@@ -22,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('shifts');
     }
 };

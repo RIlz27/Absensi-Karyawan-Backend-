@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['Karyawan', 'Admin'])->default('Karyawan');
-            $table->boolean('is_active')->default(true);
+        Schema::create('shift_hari', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('shift_id')->constrained('shift');
+            $table->enum('hari', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
         });
     }
 
@@ -22,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('shift_haris');
     }
 };
