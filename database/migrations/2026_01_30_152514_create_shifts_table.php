@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Run the migrations.  
      */
     public function up(): void
     {
-        Schema::create('shift', function (Blueprint $table) {
+        Schema::create('shifts', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_shift');
-            $table->time('jam_mulai');
-            $table->time('jam_selesai');
+            $table->string('nama');
+            $table->time('jam_masuk');
+            $table->time('jam_pulang');
             $table->integer('toleransi_menit')->default(0);
             $table->timestamps();
         });
@@ -27,5 +27,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('shifts');
+
     }
 };

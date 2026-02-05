@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('qr_code', function (Blueprint $table) {
+        Schema::create('qr_codes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('kantor_id')->constrained('kantor');
             $table->string('kode')->unique();
-            $table->dateTime('expired_at');
             $table->boolean('is_active')->default(true);
+            $table->timestamp('expired_at');
+            $table->foreignId('kantor_id')->constrained('kantors')->cascadeOnDelete();
+            $table->timestamps();
         });
     }
 

@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('absensi', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users');
-            $table->foreignId('shift_id')->constrained('shift');
-            $table->foreignId('kantor_id')->constrained('kantor');
+            $table->foreignId('shift_id')->constrained('shifts');
+            $table->foreignId('kantor_id')->constrained('kantors');
             $table->date('tanggal');
             $table->dateTime('jam_masuk')->nullable();
             $table->dateTime('jam_pulang')->nullable();
@@ -32,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('absensis');
+        Schema::dropIfExists('absensi');
     }
 };

@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kantor', function (Blueprint $table) {
+        Schema::create('kantors', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->text('alamat');
-            $table->decimal('latitude', 10, 7);
-            $table->decimal('longitude', 10, 7);
+            $table->string('alamat'); // <- INI WAJIB ADA & NOT NULL
+            $table->double('latitude');
+            $table->double('longitude');
             $table->integer('radius_meter');
             $table->timestamps();
         });
