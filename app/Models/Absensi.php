@@ -21,9 +21,19 @@ class Absensi extends Model
         'metode'
     ];
 
+    // App/Models/Absensi.php
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function kantor()
+    {
+        return $this->belongsTo(Kantor::class);
+    }
+
     protected $casts = [
         'jam_masuk' => 'datetime',
         'jam_pulang' => 'datetime',
     ];
 }
-    

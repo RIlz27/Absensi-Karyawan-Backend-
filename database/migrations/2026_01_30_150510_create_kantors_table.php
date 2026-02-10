@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('kantors', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->string('alamat'); // <- INI WAJIB ADA & NOT NULL
+            $table->text('alamat');
             $table->double('latitude');
             $table->double('longitude');
-            $table->integer('radius_meter');
+            $table->integer('radius_meter')->default(50);
             $table->timestamps();
         });
     }

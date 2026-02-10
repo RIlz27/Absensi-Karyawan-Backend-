@@ -6,12 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shift extends Model
 {
-    protected $table = 'shifts';
+    protected $fillable = ['nama_shift', 'jam_masuk', 'jam_pulang'];
 
-    protected $fillable = [
-        'nama',
-        'jam_masuk',
-        'jam_pulang',
-        'toleransi_menit'
-    ];
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_shifts');
+    }
 }

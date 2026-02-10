@@ -9,12 +9,12 @@ class UserShift extends Model
     protected $table = 'user_shifts';
 
     protected $fillable = [
-        'user_id',
-        // 'shift_id',
-        'kantor_id',
-        'tanggal_mulai',
-        'tanggal_selesai'
-    ];
+    'user_id',
+    'shift_id', 
+    'kantor_id',
+    'tanggal_mulai',
+    'tanggal_selesai'
+];
 
     public function kantor()
     {
