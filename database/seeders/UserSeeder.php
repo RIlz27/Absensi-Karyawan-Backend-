@@ -11,22 +11,15 @@ class UserSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-    public function run(): void
-    {
-        // Buat Admin
-        User::create([
-            'name'     => 'Administrator',
-            'nip'      => '12345', // Ganti email jadi nip
-            'password' => Hash::make('password'),
-            'role'     => 'admin'
-        ]);
-
-        // Buat Karyawan (buat ngetes login sebagai karyawan nanti)
-        User::create([
-            'name'     => 'Budi Karyawan',
-            'nip'      => '54321',
-            'password' => Hash::make('password'),
-            'role'     => 'karyawan'
-        ]);
-    }
+    public function run()
+{
+    \App\Models\User::updateOrCreate(
+        ['nip' => '12345'], // Cek berdasarkan NIP
+        [
+            'name' => 'Administrator',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+        ]
+    );
+}
 }

@@ -34,10 +34,9 @@ class User extends Authenticatable
     /**
      * Relasi Many-to-Many ke Shift
      */
-    public function shifts(): BelongsToMany // 3. Tambahkan type-hint BelongsToMany
-    {
-        return $this->belongsToMany(Shift::class, 'user_shifts')
-            ->withPivot('hari', 'kantor_id')
-            ->withTimestamps();
-    }
+   public function shifts() {
+    return $this->belongsToMany(Shift::class, 'user_shifts')
+                ->withPivot('hari', 'kantor_id')
+                ->withTimestamps();
+}
 }

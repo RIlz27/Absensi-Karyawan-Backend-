@@ -6,28 +6,28 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up()
-{
-    Schema::create('qr_codes', function (Blueprint $table) {
-        $table->id();
-        $table->string('kode')->unique();
-        // Pakai foreignId agar otomatis connect ke tabel kantors
-        $table->foreignId('kantor_id')->constrained()->cascadeOnDelete();
-        $table->enum('type', ['masuk', 'pulang']); 
-        $table->boolean('is_active')->default(true);
-        $table->timestamp('expired_at');
-        $table->timestamps();
-    });
-}
+    {
+        Schema::create('qr_codes', function (Blueprint $table) {
+            $table->id();
+            $table->string('kode')->unique();
+            $table->foreignId('kantor_id')
+                  ->constrained('kantors') 
+                  ->cascadeOnDelete();
 
-    /**
-     * Reverse the migrations.
-     */
+            $table->enum('type', ['masuk', 'pulang'])->index(); 
+            $table->boolean('is_active')->default(true)->index();
+            
+            $table->timestamp('expired_at')->nullable(); // Kasih nullable biar aman pas data entry
+            $table->timestamps();
+        });
+    }
+
     public function down(): void
     {
-        Schema::dropIfExists('qr_codes');   
+        // Pastikan foreign key check dimatikan sebentar pas drop biar gak error di MySQL
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('qr_codes');
+        Schema::enableForeignKeyConstraints();
     }
 };

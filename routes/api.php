@@ -4,37 +4,46 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\QrCodeController; // Pastikan nama controller sama dengan file-nya
+use App\Http\Controllers\QrCodeController;
 use App\Http\Controllers\KantorController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserShiftController;
+use App\Models\User;
+use App\Models\Shift;
+use App\Models\Kantor;
 
-// 1. PUBLIC ROUTES (Gak perlu login)
+// 1. PUBLIC ROUTES
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/ping', fn() => response()->json(['pong' => true]));
 
-// 2. PROTECTED ROUTES (Wajib Login/Sanctum)
+// 2. PROTECTED ROUTES (Wajib Login)
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Auth & Me
+    // --- Profile & Auth ---
     Route::get('/me', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Absensi & QR
+    // --- Fitur Utama Absensi ---
     Route::post('/scan', [AbsensiController::class, 'scan']);
+    Route::get('/history', [AbsensiController::class, 'history']); // Jangan lupa route history
     Route::post('/generate-qr', [QrCodeController::class, 'generate']);
-    Route::post('/generate-qr', [KantorController::class, 'generateQr']);
 
-    // Manajemen (Admin Only - Lo bisa filter lagi nanti pake role)
-    Route::get('/kantor', [KantorController::class, 'index']);
+    // --- Dropdown Data (Buat Form ManageShift) ---
+    Route::get('/fetch-users', fn() => User::all());
+    Route::get('/fetch-shifts', fn() => Shift::all());
+    Route::get('/fetch-kantors', fn() => Kantor::all());
+
+    // --- Manajemen User ---
     Route::apiResource('users', UserController::class);
 
-    // Assign Shift (Pivot)
-    Route::post('/assign-shift', [UserShiftController::class, 'assignShift']);
+    // --- Manajemen Shift (Plotting) ---
+    Route::post('/user-shifts', [UserShiftController::class, 'store']);
+    Route::post('/assign-shift', [UserShiftController::class, 'assignShift']); // Jika ini logic berbeda
+    Route::delete('/user-shifts/{id}', [UserShiftController::class, 'destroy']);
 
-    //Mapping Absensi
-    Route::get('/kantor', [KantorController::class, 'index']);  // Ambil data
-    Route::post('/kantor', [KantorController::class, 'store']); // Simpan data
-    Route::put('/kantor/{id}', [KantorController::class, 'update']); // Untuk Edit
-    Route::delete('/kantor/{id}', [KantorController::class, 'destroy']); // Untuk Hapus
+    // --- Manajemen Kantor (CRUD Lengkap) ---
+    Route::get('/kantor', [KantorController::class, 'index']);
+    Route::post('/kantor', [KantorController::class, 'store']);
+    Route::put('/kantor/{id}', [KantorController::class, 'update']);
+    Route::delete('/kantor/{id}', [KantorController::class, 'destroy']);
 });

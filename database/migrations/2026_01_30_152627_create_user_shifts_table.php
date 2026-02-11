@@ -16,13 +16,8 @@
                     $table->foreignId('user_id')->constrained()->cascadeOnDelete();
                     $table->foreignId('shift_id')->constrained()->cascadeOnDelete();
                     $table->foreignId('kantor_id')->constrained()->cascadeOnDelete();
-
-                    // Tambahan biar bisa atur hari (Senin, Selasa, dll)
-                    $table->enum('hari', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
-
+                    $table->enum('hari', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
                     $table->timestamps();
-
-                    // Mencegah duplikasi: 1 user gak boleh punya 2 shift di hari yang sama
                     $table->unique(['user_id', 'hari']);
                 });
             }

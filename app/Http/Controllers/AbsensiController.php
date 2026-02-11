@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use App\Models\Absensi;
 use App\Models\QrCode;
 use App\Models\User;
+use App\Models\Kantor;
 use Illuminate\Support\Facades\Auth;
 
 class AbsensiController extends Controller
@@ -20,18 +21,17 @@ class AbsensiController extends Controller
             'longitude' => 'required|numeric',
         ]);
 
-        // 2. Definisi Waktu & User (Definisikan $now dan $hariIni DULU sebelum dipakai)
         $now = Carbon::now();
-        $hariIni = $now->translatedFormat('l'); // Hasil: Senin, Selasa, dsb.
+        $hariIni = $now->format('l'); // Hasil: "Tuesday" (Cocok dengan Migration Inggris)
 
         /** @var \App\Models\User $user */
-        $user = Auth::user(); // Gunakan Auth::user() yang diimport di atas
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // 3. CEK QR VALID?
+        // 2. CEK QR VALID?
         $qr = QrCode::where('kode', $request->kode_qr)
             ->where('is_active', true)
             ->where('expired_at', '>', $now)
@@ -41,18 +41,24 @@ class AbsensiController extends Controller
             return response()->json(['message' => 'QR Code sudah expired atau tidak valid'], 403);
         }
 
-        // 4. CEK SHIFT USER HARI INI
+        // 3. CEK SHIFT USER HARI INI
         $shiftUser = $user->shifts()
             ->wherePivot('hari', $hariIni)
             ->wherePivot('kantor_id', $qr->kantor_id)
             ->first();
 
         if (!$shiftUser) {
-            return response()->json(['message' => "Jadwal shift hari $hariIni tidak ditemukan"], 403);
+            return response()->json([
+                'message' => "Jadwal shift hari $hariIni tidak ditemukan di kantor ini",
+                'debug' => [
+                    'hari' => $hariIni,
+                    'kantor_id' => $qr->kantor_id
+                ]
+            ], 403);
         }
 
-        // 3. CEK JARAK GPS (Haversine)
-        $kantor = \App\Models\Kantor::find($qr->kantor_id);
+        // 4. CEK JARAK GPS (Haversine)
+        $kantor = Kantor::find($qr->kantor_id);
         $distance = $this->haversine(
             $request->latitude,
             $request->longitude,
@@ -67,7 +73,7 @@ class AbsensiController extends Controller
             ], 403);
         }
 
-        // 4. LOGIC ABSENSI (MASUK / PULANG)
+        // 5. LOGIC ABSENSI (MASUK / PULANG)
         $absensi = Absensi::where('user_id', $user->id)
             ->whereDate('tanggal', $now->toDateString())
             ->first();
@@ -75,16 +81,19 @@ class AbsensiController extends Controller
         if (!$absensi) {
             // --- LOGIC ABSEN MASUK ---
             $jamMasukShift = Carbon::createFromFormat('H:i:s', $shiftUser->jam_masuk);
+            
+            // Hitung batas toleransi berdasarkan kolom toleransi_menit di tabel shifts
+            $batasToleransi = (clone $jamMasukShift)->addMinutes($shiftUser->toleransi_menit ?? 0);
 
-            // Cek telat (toleransi bisa lo tambah di sini)
-            $status = $now->gt($jamMasukShift) ? 'Telat' : 'Tepat Waktu';
+            // Status HARUS sesuai ENUM migration: 'Hadir' atau 'Terlambat'
+            $status = $now->gt($batasToleransi) ? 'Terlambat' : 'Hadir';
 
             $absensi = Absensi::create([
                 'user_id'   => $user->id,
                 'shift_id'  => $shiftUser->id,
                 'kantor_id' => $kantor->id,
                 'tanggal'   => $now->toDateString(),
-                'jam_masuk' => $now->toTimeString(),
+                'jam_masuk' => $now, // Mengirim DateTime lengkap sesuai migration
                 'status'    => $status,
                 'latitude'  => $request->latitude,
                 'longitude' => $request->longitude,
@@ -99,8 +108,9 @@ class AbsensiController extends Controller
 
         if (!$absensi->jam_pulang) {
             // --- LOGIC ABSEN PULANG ---
+            // Update jam_pulang dengan DateTime sekarang
             $absensi->update([
-                'jam_pulang' => $now->toTimeString()
+                'jam_pulang' => $now 
             ]);
 
             return response()->json([
@@ -108,6 +118,8 @@ class AbsensiController extends Controller
                 'data' => $absensi
             ]);
         }
+
+        return response()->json(['message' => 'Anda sudah melakukan absen masuk dan pulang hari ini.'], 400);
     }
 
     public function history(Request $request)
@@ -119,7 +131,7 @@ class AbsensiController extends Controller
         $data = Absensi::where('user_id', $user->id)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
-            ->with(['shift', 'kantor']) // Biar keliatan absen di kantor mana & shift apa
+            ->with(['shift', 'kantor'])
             ->orderBy('tanggal', 'desc')
             ->get();
 
@@ -128,7 +140,7 @@ class AbsensiController extends Controller
 
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {
-        $earth = 6371000;
+        $earth = 6371000; // Meter
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
 
@@ -138,6 +150,4 @@ class AbsensiController extends Controller
 
         return $earth * (2 * asin(sqrt($a)));
     }
-
-    
 }

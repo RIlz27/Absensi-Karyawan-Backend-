@@ -43,4 +43,5 @@ class UserShiftController extends Controller
             return response()->json(['message' => 'Gagal assign shift: ' . $e->getMessage()], 500);
         }
     }
+    
 }

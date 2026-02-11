@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('shift_hari', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('shift_id')->constrained('shift');
+           $table->foreignId('shift_id')->constrained('shifts')->onDelete('cascade');
             $table->enum('hari', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
         });
     }
