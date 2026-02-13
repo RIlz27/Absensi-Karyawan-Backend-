@@ -8,6 +8,7 @@ use App\Http\Controllers\QrCodeController;
 use App\Http\Controllers\KantorController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserShiftController;
+use App\Http\Controllers\LaporanController;
 use App\Models\User;
 use App\Models\Shift;
 use App\Models\Kantor;
@@ -27,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/scan', [AbsensiController::class, 'scan']);
     Route::get('/history', [AbsensiController::class, 'history']); // Jangan lupa route history
     Route::post('/generate-qr', [QrCodeController::class, 'generate']);
+    Route::get('/laporan-absensi', [LaporanController::class, 'index']);
 
     // --- Dropdown Data (Buat Form ManageShift) ---
     Route::get('/fetch-users', fn() => User::all());
