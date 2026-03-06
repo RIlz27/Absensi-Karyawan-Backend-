@@ -2,29 +2,29 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\User;
+use App\Models\Kantor;
+use App\Models\Shift;
+use App\Models\ShiftHari;
 
 class ShiftSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run()
     {
-        // 1.User
-        $user = \App\Models\User::updateOrCreate(
+        // 1. Buat User
+        User::updateOrCreate(
             ['id' => 1],
             [
                 'name' => 'Admin Testing',
-                'nip' => '12345', // Pastikan NIP unik
+                'nip' => '12345',
                 'password' => bcrypt('password'),
                 'role' => 'admin',
             ]
         );
 
-        // 2.Kantor ID
-        $kantor = \App\Models\Kantor::updateOrCreate(
+        // 2. Buat Kantor
+        Kantor::updateOrCreate(
             ['id' => 1],
             [
                 'nama' => 'Kantor Pusat',
@@ -35,28 +35,24 @@ class ShiftSeeder extends Seeder
             ]
         );
 
-        // 3.Master Shift
-        $shiftPagi = \App\Models\Shift::updateOrCreate(
-            ['nama' => 'Office Hour'],
+        // 3. Buat Master Shift
+        $shift = Shift::updateOrCreate(
+            ['id' => 1], 
             [
-                'jam_masuk' => '08:00:00',
-                'jam_pulang' => '17:00:00',
+                'nama' => 'Office Hour',
+                'jam_masuk' => '06:30:00',
+                'jam_pulang' => '17:30:00',
                 'toleransi_menit' => 15,
             ]
         );
 
-        // 4. Plotting ke User (Senin sampai Jumat sekaligus)
-        $hariKerja = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-
-        foreach ($hariKerja as $hari) {
-            \App\Models\UserShift::updateOrCreate(
+        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        
+        foreach ($days as $day) {
+            ShiftHari::updateOrCreate(
                 [
-                    'user_id' => $user->id,
-                    'hari'    => $hari, // Akan mengisi Monday, Tuesday, dst.
-                ],
-                [
-                    'shift_id'  => $shiftPagi->id,
-                    'kantor_id' => $kantor->id,
+                    'shift_id' => $shift->id,
+                    'hari' => $day
                 ]
             );
         }

@@ -6,46 +6,45 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
     public function index()
     {
-        // Ambil ID user yang sedang login supaya nggak ngatur jadwal diri sendiri
-        $currentId = Auth::id(); 
-
-        // Ambil user kecuali diri sendiri, dan urutkan berdasarkan yang terbaru
-        $users = User::where('id', '!=', $currentId)
-                    ->orderBy('name', 'asc')
-                    ->get();
+        $currentId = Auth::id();
+        $users = User::with(['kantor', 'shifts'])
+            ->where('id', '!=', $currentId)
+            ->get();
 
         return response()->json($users);
     }
 
     public function store(Request $request)
     {
-        // Validasi ditambahin email biar nggak error database
-        $validated = $request->validate([
-            'nip'      => 'required|unique:users,nip',
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email', // Wajib ada email bro
-            'password' => 'required|min:6',
-            'role'     => 'required|in:admin,karyawan',
+        $validator = Validator::make($request->all(), [
+            'nip'  => 'required|unique:users,nip',
+            'name' => 'required|string|max:255',
+            'role' => 'required|in:admin,karyawan',
         ]);
 
-        // Mapping data
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors()
+            ], 422);
+        }
         $user = User::create([
-            'nip'       => $validated['nip'],
-            'name'      => $validated['name'],
-            'email'     => $validated['email'],
-            'role'      => $validated['role'],
-            'password'  => Hash::make($validated['password']),
-            'is_active' => true, // Sesuai default migrasi lo
+            'nip'       => $request->nip,
+            'name'      => $request->name,
+            'role'      => $request->role,
+            'password'  => Hash::make($request->nip),
+            'is_active' => true,
         ]);
 
         return response()->json([
-            'success' => true, 
-            'message' => 'Karyawan berhasil didaftarkan!',
+            'success' => true,
+            'message' => 'Karyawan berhasil didaftarkan! Password default adalah NIP.',
             'user'    => $user
         ], 201);
     }
@@ -53,13 +52,14 @@ class UserController extends Controller
     public function destroy($id)
     {
         $user = User::findOrFail($id);
-        
-        // Proteksi jangan sampai hapus diri sendiri via API
         if ($user->id === Auth::id()) {
-            return response()->json(['message' => 'Gak bisa hapus akun sendiri bro!'], 403);
+            return response()->json(['message' => 'Tidak Dapat Menghapus akun Sendiri'], 403);
         }
-
         $user->delete();
-        return response()->json(['message' => 'Karyawan berhasil dihapus']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Karyawan berhasil dihapus'
+        ]);
     }
 }

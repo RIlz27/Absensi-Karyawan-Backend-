@@ -12,6 +12,8 @@ class UserShift extends Model
     'user_id',
     'shift_id', 
     'kantor_id',
+    'hari',          
+    'tipe',            
     'tanggal_mulai',
     'tanggal_selesai'
 ];

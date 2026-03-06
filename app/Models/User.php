@@ -12,12 +12,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = [
-        'name',
-        'nip',
-        'password',
-        'role',
-    ];
+    protected $fillable = ['nip', 'name', 'password', 'role', 'is_active'];
 
     protected $hidden = [
         'password',
@@ -28,15 +23,19 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
-    /**
-     * Relasi Many-to-Many ke Shift
-     */
-   public function shifts() {
-    return $this->belongsToMany(Shift::class, 'user_shifts')
-                ->withPivot('hari', 'kantor_id')
-                ->withTimestamps();
-}
+    public function kantor()
+    {
+        return $this->belongsTo(Kantor::class, 'kantor_id');
+    }
+
+    public function shifts()
+    {
+        return $this->belongsToMany(Shift::class, 'user_shifts')
+            ->withPivot('hari', 'kantor_id')
+            ->withTimestamps();
+    }
 }

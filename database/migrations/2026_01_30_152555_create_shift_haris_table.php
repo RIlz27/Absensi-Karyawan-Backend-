@@ -6,23 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('shift_hari', function (Blueprint $table) {
             $table->id();
-           $table->foreignId('shift_id')->constrained('shifts')->onDelete('cascade');
-            $table->enum('hari', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->foreignId('shift_id')->constrained('shifts')->onDelete('cascade');
+            $table->enum('hari', ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']);
+            $table->timestamps();
+            $table->unique(['shift_id', 'hari']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('shift_haris');
+        Schema::dropIfExists('shift_hari');
     }
 };
