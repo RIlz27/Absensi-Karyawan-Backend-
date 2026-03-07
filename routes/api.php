@@ -15,6 +15,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/ping', fn() => response()->json(['pong' => true]));
 Route::get('/initial-setup/check', [SetupController::class, 'check']);
 Route::post('/initial-setup', [SetupController::class, 'store']);
+Route::post('/initial-setup/reset', [SetupController::class, 'reset']);
 
 // 2. PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {

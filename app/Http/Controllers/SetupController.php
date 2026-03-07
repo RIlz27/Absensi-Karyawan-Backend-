@@ -114,4 +114,28 @@ class SetupController extends Controller
             'setup_done' => $isSetupDone
         ]);
     }
+
+    /**
+     * Reset all setup data to allow re-configuration.
+     */
+    public function reset()
+    {
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
+            
+            \App\Models\User::truncate();
+            \App\Models\Kantor::truncate();
+            \App\Models\Shift::truncate();
+            \Illuminate\Support\Facades\DB::table('shift_haris')->truncate();
+            
+            \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json(['message' => 'Semua data berhasil direset. Silakan setup ulang.']);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json(['message' => 'Gagal mereset data', 'error' => $e->getMessage()], 500);
+        }
+    }
 }
