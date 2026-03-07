@@ -25,22 +25,21 @@ class UserShiftController extends Controller
         try {
             DB::beginTransaction();
             foreach ($user_ids as $userId) {
+                // Hapus semua shift biasa lama milik user ini sebelum diisi ulang
+                UserShift::where('user_id', $userId)->where('tipe', 'biasa')->delete();
+
                 foreach ($shift->hariKerja as $item) {
-                    UserShift::updateOrCreate(
-                        [
-                            'user_id' => $userId,
-                            'hari'    => $item->hari,
-                            'tipe'    => 'biasa'
-                        ],
-                        [
-                            'shift_id'  => $shift->id,
-                            'kantor_id' => $request->kantor_id
-                        ]
-                    );
+                    UserShift::create([
+                        'user_id'   => $userId,
+                        'hari'      => $item->hari,
+                        'tipe'      => 'biasa',
+                        'shift_id'  => $shift->id,
+                        'kantor_id' => $request->kantor_id
+                    ]);
                 }
             }
             DB::commit();
-            return response()->json(['message' => 'Shift Biasa berhasil diplot otomatis!']);
+            return response()->json(['message' => 'Shift Biasa berhasil diatur mengikuti jadwal default!']);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
@@ -89,7 +88,8 @@ class UserShiftController extends Controller
 
     public function show($id)
     {
-        $shifts = UserShift::where('user_id', $id)->get();
+        // PENTING: eager load relasi shift agar front-end tidak kosong!
+        $shifts = UserShift::with('shift')->where('user_id', $id)->get();
         return response()->json($shifts);
     }
 }

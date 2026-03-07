@@ -5,7 +5,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\{
     AbsensiController, AuthController, QrCodeController, 
     KantorController, UserController, LaporanController, ShiftController,
-    CutiController, IzinController
+    CutiController, IzinController, SetupController
 };
 use App\Http\Controllers\api\UserShiftController;
 use App\Models\{Shift, Kantor};
@@ -13,6 +13,8 @@ use App\Models\{Shift, Kantor};
 // 1. PUBLIC ROUTES
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/ping', fn() => response()->json(['pong' => true]));
+Route::get('/initial-setup/check', [SetupController::class, 'check']);
+Route::post('/initial-setup', [SetupController::class, 'store']);
 
 // 2. PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
@@ -24,8 +26,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/user-shifts/{id}', [UserShiftController::class, 'destroy']);
 
     // --- AUTH & PROFILE ---
-    Route::get('/me', fn(Request $request) => $request->user());
+    Route::get('/me', fn(Request $request) => $request->user()->load('shifts'));
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/profile', [\App\Http\Controllers\ProfileController::class, 'updateProfile']);
+    Route::post('/profile/avatar', [\App\Http\Controllers\ProfileController::class, 'updateAvatar']);
 
     // --- MANAJEMEN USER ---
     Route::apiResource('users', UserController::class);

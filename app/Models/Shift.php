@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shift extends Model
 {
-    protected $fillable = ['nama', 'jam_masuk', 'jam_pulang'];
+    protected $fillable = ['nama', 'jam_masuk', 'jam_pulang', 'warna'];
 
     public function users()
     {

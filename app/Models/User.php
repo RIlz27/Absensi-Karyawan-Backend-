@@ -20,6 +20,7 @@ class User extends Authenticatable
         'nip',
         'kantor_id',
         'is_active',
+        'avatar',
     ];
 
     protected $hidden = [

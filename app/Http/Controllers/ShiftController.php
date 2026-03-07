@@ -22,6 +22,7 @@ class ShiftController extends Controller
             'nama' => 'required|string|max:255',
             'jam_masuk' => 'required',
             'jam_pulang' => 'required',
+            'warna' => 'nullable|string',
         ]);
 
         try {
@@ -29,6 +30,7 @@ class ShiftController extends Controller
                 'nama' => $request->nama,
                 'jam_masuk' => $request->jam_masuk,
                 'jam_pulang' => $request->jam_pulang,
+                'warna' => $request->warna ?? '#3B82F6',
             ]);
 
             return response()->json([
@@ -63,6 +65,7 @@ class ShiftController extends Controller
             'nama' => 'nullable|string',
             'jam_masuk' => 'nullable',
             'jam_pulang' => 'nullable',
+            'warna' => 'nullable|string',
         ]);
 
         $shift = Shift::findOrFail($id);
@@ -70,7 +73,7 @@ class ShiftController extends Controller
         DB::beginTransaction();
         try {
             // Update data dasar jika ada
-            $shift->update($request->only(['nama', 'jam_masuk', 'jam_pulang']));
+            $shift->update($request->only(['nama', 'jam_masuk', 'jam_pulang', 'warna']));
 
             // Update hari kerja jika dikirim
             if ($request->has('hari_kerja')) {

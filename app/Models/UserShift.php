@@ -20,4 +20,9 @@ class UserShift extends Model
     {
         return $this->belongsTo(Kantor::class);
     }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
+    }
 }
