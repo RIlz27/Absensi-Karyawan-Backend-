@@ -19,7 +19,6 @@ return new class extends Migration
             $table->enum('hari', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
             $table->enum('tipe', ['biasa', 'tambahan'])->default('biasa');  
             $table->timestamps();
-            $table->unique(['user_id', 'hari', 'tipe']);
         });
     }
 

@@ -12,10 +12,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        $currentId = Auth::id();
-        $users = User::with(['kantor', 'shifts'])
-            ->where('id', '!=', $currentId)
-            ->get();
+        $users = User::with(['kantor', 'shifts'])->get();
 
         return response()->json($users);
     }
@@ -26,27 +23,23 @@ class UserController extends Controller
             'nip'  => 'required|unique:users,nip',
             'name' => 'required|string|max:255',
             'role' => 'required|in:admin,karyawan',
+            'kantor_id' => 'required|integer',
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors'  => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
+
         $user = User::create([
             'nip'       => $request->nip,
             'name'      => $request->name,
             'role'      => $request->role,
+            'kantor_id' => $request->kantor_id,
             'password'  => Hash::make($request->nip),
             'is_active' => true,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil didaftarkan! Password default adalah NIP.',
-            'user'    => $user
-        ], 201);
+        return response()->json(['success' => true, 'message' => 'Berhasil!'], 201);
     }
 
     public function destroy($id)

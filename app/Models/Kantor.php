@@ -13,6 +13,7 @@ class Kantor extends Model
         'alamat',
         'latitude',
         'longitude',
-        'radius_meter'
+        'radius_meter',
+        'toleransi_menit'
     ];
 }

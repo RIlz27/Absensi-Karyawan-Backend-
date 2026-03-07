@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Model;
 
 class QrCode extends Model
@@ -12,4 +13,10 @@ class QrCode extends Model
         'is_active',
         'expired_at',
     ];
+
+    // Tambahkan relasi ke Kantor
+    public function kantor()
+    {
+        return $this->belongsTo(Kantor::class);
+    }
 }

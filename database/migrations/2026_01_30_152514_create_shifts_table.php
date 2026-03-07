@@ -16,7 +16,6 @@ return new class extends Migration
             $table->string('nama');
             $table->time('jam_masuk');
             $table->time('jam_pulang');
-            $table->integer('toleransi_menit')->default(0);
             $table->timestamps();
         });
     }

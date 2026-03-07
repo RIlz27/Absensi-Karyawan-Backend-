@@ -9,14 +9,13 @@ class ShiftHariSeeder extends Seeder
 {
     public function run(): void
     {
-        // Pastikan ini adalah Array of Strings
         $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
         foreach ($days as $day) {
             \App\Models\ShiftHari::updateOrCreate(
                 [
                     'shift_id' => 1,
-                    'hari' => (string) $day // Paksa jadi string untuk memastikan
+                    'hari' => (string) $day 
                 ],
                 [
                     'created_at' => now(),

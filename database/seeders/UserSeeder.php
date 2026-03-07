@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
     public function run()
 {
     \App\Models\User::updateOrCreate(
-        ['nip' => '12345'], // Cek berdasarkan NIP
+        ['nip' => '0085689927'],
         [
             'name' => 'Administrator',
             'password' => bcrypt('password'),

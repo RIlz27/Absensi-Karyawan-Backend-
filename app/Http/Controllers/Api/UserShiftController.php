@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shift;
 use App\Models\UserShift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class UserShiftController extends Controller
 {
-    // --- 1. HANDLE SHIFT BIASA (CARD UNGU) ---
-    // Otomatis ngambil dari template hari kerja
+    
     public function storeShiftBiasa(Request $request)
     {
         $request->validate([
@@ -50,35 +50,32 @@ class UserShiftController extends Controller
     public function storeShiftTambahan(Request $request)
     {
         $request->validate([
-            'shift_id' => 'required',
             'user_ids' => 'required|array',
-            'hari'     => 'required|string',
-            'kantor_id' => 'required'
+            'shift_id' => 'required',
+            'kantor_id' => 'required',
+            'hari'     => 'required' 
         ]);
 
-        try {
-            DB::beginTransaction();
-            UserShift::whereIn('user_id', $request->user_ids)
-                ->where('hari', $request->hari)
-                ->where('tipe', 'tambahan')
-                ->delete();
+        Log::info('Data diterima:', $request->all());
 
-            foreach ($request->user_ids as $userId) {
-                UserShift::create([
-                    'user_id'   => $userId,
-                    'hari'      => $request->hari,
-                    'tipe'      => 'tambahan',
-                    'shift_id'  => $request->shift_id,
-                    'kantor_id' => $request->kantor_id
-                ]);
+        foreach ($request->user_ids as $userId) {
+            if (!$userId) {
+                Log::error('Gagal simpan: user_id kosong');
+                continue;
             }
-
-            DB::commit();
-            return response()->json(['message' => 'Shift diperbarui!']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => $e->getMessage()], 500);
+            \App\Models\UserShift::updateOrCreate(
+                [
+                    'user_id' => $userId,
+                    'hari'    => $request->hari, 
+                ],
+                [
+                    'shift_id'  => $request->shift_id,
+                    'kantor_id' => $request->kantor_id,
+                    'tipe'      => 'tambahan',
+                ]
+            );
         }
+        return response()->json(['message' => 'Success'], 201);
     }
 
     public function destroy($id)
@@ -92,7 +89,6 @@ class UserShiftController extends Controller
 
     public function show($id)
     {
-        // Coba return data shift user berdasarkan ID
         $shifts = UserShift::where('user_id', $id)->get();
         return response()->json($shifts);
     }

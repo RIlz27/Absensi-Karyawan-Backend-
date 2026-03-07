@@ -13,9 +13,7 @@ class UserShift extends Model
     'shift_id', 
     'kantor_id',
     'hari',          
-    'tipe',            
-    'tanggal_mulai',
-    'tanggal_selesai'
+    'tipe', 
 ];
 
     public function kantor()

@@ -16,38 +16,37 @@ class ShiftSeeder extends Seeder
         User::updateOrCreate(
             ['id' => 1],
             [
-                'name' => 'Admin Testing',
-                'nip' => '12345',
+                'name' => 'Airil Jahran',
+                'nip' => '0085689927',
                 'password' => bcrypt('password'),
                 'role' => 'admin',
             ]
         );
 
-        // 2. Buat Kantor
+        // 2. Buat Kantor (Toleransi ada di sini sekarang)
         Kantor::updateOrCreate(
             ['id' => 1],
             [
-                'nama' => 'Kantor Pusat',
-                'alamat' => 'Jl. Merdeka No. 10, Jakarta',
+                'nama' => 'Sandi Jaya',
+                'alamat' => 'Jawa Barat, Cianjur, Kel. Muka, Kp. Margaluyu',
                 'latitude' => -6.826774,
                 'longitude' => 107.127078,
                 'radius_meter' => 60,
-            ]
-        );
-
-        // 3. Buat Master Shift
-        $shift = Shift::updateOrCreate(
-            ['id' => 1], 
-            [
-                'nama' => 'Office Hour',
-                'jam_masuk' => '06:30:00',
-                'jam_pulang' => '17:30:00',
                 'toleransi_menit' => 15,
             ]
         );
 
+        $shift = Shift::updateOrCreate(
+            ['id' => 1],
+            [
+                'nama' => 'Shift Biasa',
+                'jam_masuk' => '05:30:00',
+                'jam_pulang' => '18:30:00',
+            ]
+        );
+
         $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        
+
         foreach ($days as $day) {
             ShiftHari::updateOrCreate(
                 [

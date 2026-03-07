@@ -8,32 +8,48 @@ use Illuminate\Support\Facades\DB;
 
 class ShiftController extends Controller
 {
+    // 1. TAMBAHKAN INI: Untuk nampilin semua Master Shift di bagian atas UI
+    public function index()
+    {
+        $shifts = Shift::with('hariKerja')->get();
+        return response()->json($shifts);
+    }
+
+    // 2. TAMBAHKAN INI: Untuk simpan Master Shift baru (Opsi B)
+    public function store(Request $request)
+    {
+        $request->validate([
+            'nama' => 'required|string|max:255',
+            'jam_masuk' => 'required',
+            'jam_pulang' => 'required',
+        ]);
+
+        try {
+            $shift = Shift::create([
+                'nama' => $request->nama,
+                'jam_masuk' => $request->jam_masuk,
+                'jam_pulang' => $request->jam_pulang,
+            ]);
+
+            return response()->json([
+                'message' => 'Master Shift berhasil dibuat!',
+                'data' => $shift
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function show($id)
     {
         try {
-            // Kita panggil relasi hariKerja
             $shift = Shift::with('hariKerja')->find($id);
 
             if (!$shift) {
                 return response()->json(['message' => 'Data tidak ditemukan'], 404);
             }
 
-            // Kita ubah manual ke array biar key-nya beneran 'hari_kerja'
-            $data = $shift->toArray();
-
-            // Pastikan key-nya adalah 'hari_kerja' sesuai yang dicari frontend
-            if (isset($data['hari_kerja'])) {
-                return response()->json($data);
-            }
-
-            // Fallback kalau Laravel tetep ngirim camelCase
-            return response()->json([
-                'id' => $shift->id,
-                'nama' => $shift->nama,
-                'jam_masuk' => $shift->jam_masuk,
-                'jam_pulang' => $shift->jam_pulang,
-                'hari_kerja' => $shift->hariKerja // Paksa key ini
-            ]);
+            return response()->json($shift);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -41,39 +57,54 @@ class ShiftController extends Controller
 
     public function update(Request $request, $id)
     {
-        // 1. Validasi Input biar gak kosong
+        // Update validasi: bisa update Hari Kerja ATAU Jam Kerja
         $request->validate([
-            'hari_kerja' => 'required|array',
+            'hari_kerja' => 'nullable|array',
+            'nama' => 'nullable|string',
+            'jam_masuk' => 'nullable',
+            'jam_pulang' => 'nullable',
         ]);
 
         $shift = Shift::findOrFail($id);
 
         DB::beginTransaction();
         try {
-            // 2. Hapus data lama
-            $shift->hariKerja()->delete();
+            // Update data dasar jika ada
+            $shift->update($request->only(['nama', 'jam_masuk', 'jam_pulang']));
 
-            // 3. Mapping dan Simpan
-            foreach ($request->hari_kerja as $h) {
-                // Gunakan dayMap biar input 'senin' atau 'monday' tetep masuk bener ke Enum DB
-                $formattedDay = $this->dayMap($h);
-
-                $shift->hariKerja()->create([
-                    'hari' => $formattedDay
-                ]);
+            // Update hari kerja jika dikirim
+            if ($request->has('hari_kerja')) {
+                $shift->hariKerja()->delete();
+                foreach ($request->hari_kerja as $h) {
+                    $formattedDay = $this->dayMap($h);
+                    $shift->hariKerja()->create([
+                        'hari' => $formattedDay
+                    ]);
+                }
             }
 
             DB::commit();
-
-            // 4. Return data terbaru biar Frontend bisa refresh state tanpa reload manual
             return response()->json([
-                'message' => 'Berhasil simpan!',
+                'message' => 'Berhasil diperbarui!',
                 'data' => $shift->load('hariKerja')
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    // 3. TAMBAHKAN INI: Biar admin bisa hapus shift yang salah input
+    public function destroy($id)
+    {
+        if ($id == 1) {
+            return response()->json(['message' => 'Shift utama tidak boleh dihapus!'], 403);
+        }
+
+        $shift = Shift::findOrFail($id);
+        $shift->delete();
+
+        return response()->json(['message' => 'Master Shift berhasil dihapus']);
     }
 
     private function dayMap($day)
@@ -86,7 +117,6 @@ class ShiftController extends Controller
             'friday'    => 'Friday',
             'saturday'  => 'Saturday',
             'sunday'    => 'Sunday',
-            // Tambahin mapping bahasa Indonesia biar kalo React lupa convert, Backend yg handle
             'senin'     => 'Monday',
             'selasa'    => 'Tuesday',
             'rabu'      => 'Wednesday',
@@ -97,11 +127,9 @@ class ShiftController extends Controller
         ];
 
         $lowerDay = strtolower(trim($day));
-
         if (!isset($days[$lowerDay])) {
-            throw new \Exception("Hari '$day' tidak valid untuk database.");
+            throw new \Exception("Hari '$day' tidak valid.");
         }
-
         return $days[$lowerDay];
     }
 }
