@@ -12,17 +12,15 @@ class QrCodeController extends Controller
 {
     public function generate(Request $request)
     {
-        // 1. Validasi: Tambahin 'type' biar gak bentrok antara absen masuk & pulang
+        // 1. Validasi: Type tidak lagi strict (karena sekarang single QR)
         $request->validate([
             'kantor_id' => 'required|exists:kantors,id',
-            'type'      => 'required|in:masuk,pulang' 
         ]);
 
         try {
             return DB::transaction(function () use ($request) {
-                // 2. Nonaktifkan QR lama spesifik untuk kantor DAN tipe tersebut
+                // 2. Nonaktifkan QR lama spesifik untuk kantor ini (semua tipe)
                 QrCode::where('kantor_id', $request->kantor_id)
-                    ->where('type', $request->type) // Tambahin filter type
                     ->update(['is_active' => false]);
 
                 // 3. Buat Kode Unik Baru
@@ -31,7 +29,8 @@ class QrCodeController extends Controller
                 // 4. Simpan ke database
                 $qr = QrCode::create([
                     'kantor_id'  => $request->kantor_id,
-                    'type'       => $request->type, // Pastiin di migrasi tabel QrCode ada kolom 'type'
+                    'type'       => $request->type ?? 'general', // Fallback
+
                     'kode'       => $newCode,
                     'is_active'  => true,
                     'expired_at' => Carbon::now()->addSeconds(40), 
