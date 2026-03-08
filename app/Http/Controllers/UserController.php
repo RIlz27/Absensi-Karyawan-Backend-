@@ -22,7 +22,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'nip'  => 'required|unique:users,nip',
             'name' => 'required|string|max:255',
-            'role' => 'required|in:admin,karyawan',
+            'role' => 'required|in:admin,karyawan,manager',
             'kantor_id' => 'required|integer',
         ]);
 
@@ -40,6 +40,33 @@ class UserController extends Controller
         ]);
 
         return response()->json(['success' => true, 'message' => 'Berhasil!'], 201);
+    }
+
+    public function updateRole(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'role' => 'required|in:admin,karyawan,manager',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Role tidak valid'], 422);
+        }
+
+        $user = User::findOrFail($id);
+        
+        // Cek jika mencoba mengubah role sendiri menjadi selain admin (bisa menyebabkan lockout)
+        if ($user->id === Auth::id() && $request->role !== 'admin') {
+             return response()->json(['message' => 'Tidak dapat mengubah role akun sendiri menjadi selain Admin'], 403);
+        }
+
+        $user->role = $request->role;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Role karyawan berhasil diubah',
+            'user' => $user
+        ]);
     }
 
     public function destroy($id)

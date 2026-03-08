@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- MANAJEMEN USER ---
     Route::apiResource('users', UserController::class);
+    Route::patch('/users/{id}/role', [UserController::class, 'updateRole']);
 
     // --- FITUR ABSENSI ---
     Route::post('/scan', [AbsensiController::class, 'scan']);
