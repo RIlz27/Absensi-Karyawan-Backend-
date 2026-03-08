@@ -21,6 +21,7 @@ class User extends Authenticatable
         'kantor_id',
         'is_active',
         'avatar',
+        'points',
     ];
 
     protected $hidden = [
@@ -46,5 +47,10 @@ class User extends Authenticatable
         return $this->belongsToMany(Shift::class, 'user_shifts')
             ->withPivot('hari', 'kantor_id')
             ->withTimestamps();
+    }
+
+    public function pointHistories()
+    {
+        return $this->hasMany(PointHistory::class);
     }
 }

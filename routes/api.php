@@ -42,6 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/generate-qr', [QrCodeController::class, 'generate']);
     Route::get('/laporan-absensi', [LaporanController::class, 'index']);
     Route::get('/laporan-absensi/masih-di-kantor', [LaporanController::class, 'masihDiKantor']);
+    Route::get('/admin/calendar', [AbsensiController::class, 'getCalendarData']);
+    Route::post('/admin/bypass', [AbsensiController::class, 'emergencyBypass']);
     
     // --- MANAJEMEN SHIFT MASTER ---
     Route::get('/fetch-shifts', fn() => Shift::all());
@@ -68,4 +70,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/koreksi-absensi', [\App\Http\Controllers\KoreksiAbsensiController::class, 'store']);
     Route::post('/koreksi-absensi/{id}/approve', [\App\Http\Controllers\KoreksiAbsensiController::class, 'approve']);
     Route::post('/koreksi-absensi/{id}/reject', [\App\Http\Controllers\KoreksiAbsensiController::class, 'reject']);
+
+    // --- ZERA BULLETIN BOARD (PENGUMUMAN) ---
+    Route::get('/pengumuman', [\App\Http\Controllers\PengumumanController::class, 'index']);
+    Route::get('/admin/pengumuman', [\App\Http\Controllers\PengumumanController::class, 'adminIndex']);
+    Route::post('/admin/pengumuman', [\App\Http\Controllers\PengumumanController::class, 'store']);
+    Route::put('/admin/pengumuman/{id}', [\App\Http\Controllers\PengumumanController::class, 'update']);
+    Route::delete('/admin/pengumuman/{id}', [\App\Http\Controllers\PengumumanController::class, 'destroy']);
+
+    // --- LEADERBOARD & POINT SYSTEM ---
+    Route::get('/leaderboard', [\App\Http\Controllers\PointController::class, 'getLeaderboard']);
+    Route::post('/users/{id}/points', [\App\Http\Controllers\PointController::class, 'updatePoints']);
 });

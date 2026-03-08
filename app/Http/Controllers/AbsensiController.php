@@ -123,9 +123,24 @@ class AbsensiController extends Controller
                 'metode'    => 'QR'
             ]);
 
+            // PILLAR 2: DYNAMIC POINT SYSTEM (Check-in Validation)
+            $pointChange = 0;
+            if ($status === 'Hadir') {
+                $pointChange = 10;
+            } elseif ($status === 'Terlambat') {
+                $pointChange = -5;
+            }
+
+            if ($pointChange !== 0) {
+                // Determine new points, minimum 0
+                $newPoints = max(0, $user->points + $pointChange);
+                $user->update(['points' => $newPoints]);
+            }
+
             return response()->json([
                 'message' => 'Absen masuk berhasil! Status: ' . $status,
-                'data' => $absensiBaru
+                'data' => $absensiBaru,
+                'points_earned' => $pointChange
             ]);
         }
 
@@ -171,6 +186,130 @@ class AbsensiController extends Controller
             ->get();
 
         return response()->json($data);
+    }
+
+    public function getCalendarData(Request $request)
+    {
+        // Admin & Manager Only
+        $user = Auth::user();
+        if (!in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized Access'], 403);
+        }
+
+        $month = $request->query('month', date('m'));
+        $year = $request->query('year', date('Y'));
+
+        $absensis = Absensi::with('user:id,name')
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->get();
+
+        $events = [];
+
+        foreach ($absensis as $absen) {
+            $color = '#3b82f6'; // default blue (izin/cuti fallback)
+            $className = 'bg-blue-500 text-white';
+
+            if ($absen->status === 'Hadir') {
+                $color = '#22c55e'; // green
+                $className = 'bg-success-500 text-white';
+            } elseif ($absen->status === 'Terlambat') {
+                $color = '#eab308'; // yellow
+                $className = 'bg-warning-500 text-white';
+            } elseif ($absen->status === 'Alfa') {
+                $color = '#ef4444'; // red
+                $className = 'bg-danger-500 text-white';
+            }
+
+            $events[] = [
+                'id' => $absen->id,
+                'title' => $absen->user->name . ' (' . $absen->status . ')',
+                'start' => $absen->jam_masuk ?? $absen->tanggal . 'T00:00:00', // Alfa has null jam_masuk
+                'end' => $absen->jam_pulang, // Can be null if not checked out yet
+                'backgroundColor' => $color,
+                'borderColor' => $color,
+                'className' => $className,
+                'extendedProps' => [
+                    'status' => $absen->status,
+                    'user_id' => $absen->user_id,
+                    'metode' => $absen->metode,
+                ]
+            ];
+        }
+
+        return response()->json($events);
+    }
+
+    /**
+     * Pillar 4: The Bypass
+     * Manual injection of attendance records by Manager/Admin
+     */
+    public function emergencyBypass(Request $request)
+    {
+        $admin = Auth::user();
+        if (!in_array($admin->role, ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized Access'], 403);
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'tanggal' => 'required|date',
+            'shift_id' => 'required|exists:shifts,id',
+            'status' => 'required|in:Hadir,Terlambat,Izin,Sakit,Alfa',
+            'jam_masuk' => 'nullable|date_format:H:i',
+            'jam_pulang' => 'nullable|date_format:H:i'
+        ]);
+
+        $targetUser = \App\Models\User::findOrFail($request->user_id);
+        $kantorId = $targetUser->kantor_id; // Default fallback to user's assigned branch
+
+        // Check if record already exists for this date to prevent duplicates
+        $existing = Absensi::where('user_id', $targetUser->id)
+            ->whereDate('tanggal', $request->tanggal)
+            ->first();
+
+        if ($existing) {
+            return response()->json(['message' => 'Absensi untuk user ini di tanggal tersebut sudah ada!'], 400);
+        }
+
+        // Insert new Bypass Record
+        $jamMasukFull = $request->jam_masuk ? Carbon::parse($request->tanggal . ' ' . $request->jam_masuk) : null;
+        $jamPulangFull = $request->jam_pulang ? Carbon::parse($request->tanggal . ' ' . $request->jam_pulang) : null;
+
+        $absensiBaru = Absensi::create([
+            'user_id'   => $targetUser->id,
+            'shift_id'  => $request->shift_id,
+            'kantor_id' => $kantorId,
+            'tanggal'   => $request->tanggal,
+            'jam_masuk' => $jamMasukFull,
+            'jam_pulang'=> $jamPulangFull,
+            'status'    => $request->status,
+            'latitude'  => null,
+            'longitude' => null,
+            'metode'    => 'Bypass (Manual)',
+        ]);
+
+        // Integrate with Point System
+        $pointChange = 0;
+        if ($request->status === 'Hadir') {
+            $pointChange = 10;
+        } elseif ($request->status === 'Terlambat') {
+            $pointChange = -5;
+        } elseif ($request->status === 'Alfa') {
+            $pointChange = -20;
+        }
+
+        if ($pointChange !== 0) {
+            $newPoints = max(0, $targetUser->points + $pointChange);
+            $targetUser->update(['points' => $newPoints]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Emergency Bypass berhasil ditambahkan!',
+            'data' => $absensiBaru,
+            'points_impact' => $pointChange
+        ]);
     }
 
     private function haversine($lat1, $lon1, $lat2, $lon2)
@@ -267,9 +406,24 @@ class AbsensiController extends Controller
                 'metode'    => 'Manual', // Bisa ditambah 'Selfie' di enum nanti jika perlu
             ]);
 
+            // PILLAR 2: DYNAMIC POINT SYSTEM (Selfie Validation)
+            $pointChange = 0;
+            if ($status === 'Hadir') {
+                $pointChange = 10;
+            } elseif ($status === 'Terlambat') {
+                $pointChange = -5;
+            }
+
+            if ($pointChange !== 0) {
+                // Determine new points, minimum 0
+                $newPoints = max(0, $user->points + $pointChange);
+                $user->update(['points' => $newPoints]);
+            }
+
             return response()->json([
                 'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
-                'data' => $absensiBaru
+                'data' => $absensiBaru,
+                'points_earned' => $pointChange
             ]);
         }
 
