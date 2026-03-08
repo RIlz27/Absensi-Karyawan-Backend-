@@ -25,4 +25,23 @@ class LaporanController extends Controller
 
         return response()->json($reports);
     }
+
+    public function masihDiKantor(Request $request)
+    {
+        $today = \Carbon\Carbon::today();
+        
+        $query = Absensi::with(['user', 'shift', 'kantor'])
+            // Cari absensi dalam radius 24 jam terakhir yang pulang-nya masih kosong
+            ->where('created_at', '>=', now()->subHours(24))
+            ->whereNotNull('jam_masuk')
+            ->whereNull('jam_pulang');
+
+        if ($request->kantor_id) {
+            $query->where('kantor_id', $request->kantor_id);
+        }
+
+        $reports = $query->orderBy('jam_masuk', 'desc')->get();
+
+        return response()->json($reports);
+    }
 }

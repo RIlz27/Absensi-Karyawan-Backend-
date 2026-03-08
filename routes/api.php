@@ -37,9 +37,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- FITUR ABSENSI ---
     Route::post('/scan', [AbsensiController::class, 'scan']);
+    Route::post('/scan-selfie', [AbsensiController::class, 'scanSelfie']);
     Route::get('/history', [AbsensiController::class, 'history']);
     Route::post('/generate-qr', [QrCodeController::class, 'generate']);
     Route::get('/laporan-absensi', [LaporanController::class, 'index']);
+    Route::get('/laporan-absensi/masih-di-kantor', [LaporanController::class, 'masihDiKantor']);
     
     // --- MANAJEMEN SHIFT MASTER ---
     Route::get('/fetch-shifts', fn() => Shift::all());
@@ -56,6 +58,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('cuti', CutiController::class)->only(['index', 'store']);
     Route::patch('/cuti/{id}/status', [CutiController::class, 'updateStatus']);
 
+    Route::patch('/cuti/{id}/status', [CutiController::class, 'updateStatus']);
+
     Route::apiResource('izin', IzinController::class)->only(['index', 'store']);
     Route::patch('/izin/{id}/status', [IzinController::class, 'updateStatus']);
+
+    // --- FITUR KOREKSI ABSENSI ---
+    Route::get('/koreksi-absensi', [\App\Http\Controllers\KoreksiAbsensiController::class, 'index']);
+    Route::post('/koreksi-absensi', [\App\Http\Controllers\KoreksiAbsensiController::class, 'store']);
+    Route::post('/koreksi-absensi/{id}/approve', [\App\Http\Controllers\KoreksiAbsensiController::class, 'approve']);
+    Route::post('/koreksi-absensi/{id}/reject', [\App\Http\Controllers\KoreksiAbsensiController::class, 'reject']);
 });

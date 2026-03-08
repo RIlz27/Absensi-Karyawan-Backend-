@@ -81,23 +81,37 @@ class AbsensiController extends Controller
             ], 403);
         }
 
-        // 6. LOGIC ABSENSI (MASUK / PULANG)
-        $absensi = Absensi::where('user_id', $user->id)
-            ->whereDate('tanggal', $now->toDateString())
+        // 6. LOGIC ABSENSI (MASUK / PULANG) LINTAS HARI
+        // Cari absensi terakhir dalam 24 jam terakhir untuk mengakomodasi lembur lintas hari
+        $absensiTerakhir = Absensi::where('user_id', $user->id)
+            ->where('created_at', '>=', $now->copy()->subHours(24))
+            ->orderBy('id', 'desc')
             ->first();
 
-        if (!$absensi) {
+        // JIKA: Belum ada absen sama sekali, ATAU absen terakhir sudah diselesaikan (pulang tidak null) = MASUK
+        if (!$absensiTerakhir || $absensiTerakhir->jam_pulang !== null) {
+            
+            // PROTEKSI DOUBLE-IN: Cek apakah hari ini sudah pernah selesai (Masuk & Pulang)
+            $sudahSelesaiHariIni = Absensi::where('user_id', $user->id)
+                ->whereDate('tanggal', $now->toDateString())
+                ->whereNotNull('jam_pulang')
+                ->exists();
+
+            if ($sudahSelesaiHariIni) {
+                return response()->json(['message' => 'Anda sudah absen masuk & pulang hari ini.'], 400);
+            }
+
             // --- LOGIC ABSEN MASUK ---
             $jamMasukShift = Carbon::createFromFormat('H:i:s', $shiftUser->jam_masuk);
             
-            // AMBIL TOLERANSI DARI KANTOR (Sesuai kesepakatan baru)
+            // AMBIL TOLERANSI DARI KANTOR
             $toleransi = $kantor->toleransi_menit ?? 15;
             $batasToleransi = (clone $jamMasukShift)->addMinutes($toleransi);
 
             // Tentukan status berdasarkan waktu sekarang vs batas toleransi
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
-            $absensi = Absensi::create([
+            $absensiBaru = Absensi::create([
                 'user_id'   => $user->id,
                 'shift_id'  => $shiftUser->id,
                 'kantor_id' => $kantor->id,
@@ -111,22 +125,36 @@ class AbsensiController extends Controller
 
             return response()->json([
                 'message' => 'Absen masuk berhasil! Status: ' . $status,
-                'data' => $absensi
+                'data' => $absensiBaru
             ]);
         }
 
-        if (!$absensi->jam_pulang) {
-            $absensi->update([
+        // JIKA: Absen terakhir ada, TETAPI jam pulangnya kosong = PULANG (Bahkan lintas hari sekalipun)
+        if ($absensiTerakhir->jam_pulang === null) {
+            $absensiTerakhir->update([
                 'jam_pulang' => $now
             ]);
 
+            // PILLAR 4: FINISH EARLY LEMBUR LOGIC
+            // Cek apakah ada lembur yang di-approve hari ini yang berhubungan dengan absen ini
+            $activeLembur = \App\Models\Lembur::where('user_id', $user->id)
+                ->whereDate('tanggal', clone \Carbon\Carbon::parse($absensiTerakhir->tanggal))
+                ->where('status', 'Approved')
+                ->first();
+
+            // Jika user pulang LEBIH CEPAT dari jadwal lembur, 
+            // potong batas jam_selesai lemburnya untuk memastikan overtime payout akurat
+            if ($activeLembur && $now->toTimeString() < $activeLembur->jam_selesai) {
+                $activeLembur->update([
+                    'jam_selesai' => $now->toTimeString()
+                ]);
+            }
+
             return response()->json([
                 'message' => 'Absen pulang berhasil. Hati-hati di jalan!',
-                'data' => $absensi
+                'data' => $absensiTerakhir
             ]);
         }
-
-        return response()->json(['message' => 'Anda sudah absen masuk & pulang hari ini.'], 400);
     }
 
     public function history(Request $request)
@@ -156,5 +184,115 @@ class AbsensiController extends Controller
             sin($dLon / 2) ** 2;
 
         return $earth * (2 * asin(sqrt($a)));
+    }
+
+    public function scanSelfie(Request $request)
+    {
+        $request->validate([
+            'foto' => 'required|string', // Base64 image
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        $now = Carbon::now();
+        $hariInggris = $now->format('l');
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Cari Shift User hari ini
+        $shiftUser = $user->shifts()->wherePivot('hari', $hariInggris)->first();
+        if (!$shiftUser) {
+            return response()->json(['message' => "Jadwal shift hari $hariInggris tidak ditemukan"], 403);
+        }
+
+        $kantor = Kantor::find($shiftUser->pivot->kantor_id);
+        if (!$kantor) {
+             $kantor = Kantor::first(); // Fallback
+        }
+
+        // Cek Jarak GPS
+        $distance = $this->haversine($request->latitude, $request->longitude, $kantor->latitude, $kantor->longitude);
+        if ($distance > $kantor->radius_meter) {
+            return response()->json([
+                'message' => 'Anda berada di luar radius kantor!',
+                'jarak' => round($distance) . ' m',
+            ], 403);
+        }
+
+        // Proses Foto Base64
+        $image_parts = explode(";base64,", $request->foto);
+        if (count($image_parts) != 2) {
+             return response()->json(['message' => 'Format foto tidak valid'], 400); 
+        }
+        $image_type_aux = explode("image/", $image_parts[0]);
+        $image_type = $image_type_aux[1] ?? 'jpeg';
+        $image_base64 = base64_decode($image_parts[1]);
+        
+        $fileName = 'selfie_' . $user->id . '_' . time() . '.' . $image_type;
+        // Simpan langsung (tanpa upload gallery / hapus exif inheren)
+        \Illuminate\Support\Facades\Storage::disk('public')->put('absensi_selfie/' . $fileName, $image_base64);
+
+        // LOGIC LINTAS HARI (Sama dengan QR Scanner)
+        $absensiTerakhir = Absensi::where('user_id', $user->id)
+            ->where('created_at', '>=', $now->copy()->subHours(24))
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$absensiTerakhir || $absensiTerakhir->jam_pulang !== null) {
+            // PROTEKSI DOUBLE-IN
+            $sudahSelesaiHariIni = Absensi::where('user_id', $user->id)
+                ->whereDate('tanggal', $now->toDateString())
+                ->whereNotNull('jam_pulang')
+                ->exists();
+
+            if ($sudahSelesaiHariIni) {
+                return response()->json(['message' => 'Anda sudah absen masuk & pulang hari ini.'], 400);
+            }
+
+            // --- LOGIC ABSEN MASUK ---
+            $jamMasukShift = Carbon::createFromFormat('H:i:s', $shiftUser->jam_masuk);
+            $batasToleransi = (clone $jamMasukShift)->addMinutes($kantor->toleransi_menit ?? 15);
+            $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
+
+            $absensiBaru = Absensi::create([
+                'user_id'   => $user->id,
+                'shift_id'  => $shiftUser->id,
+                'kantor_id' => $kantor->id,
+                'tanggal'   => $now->toDateString(),
+                'jam_masuk' => $now,
+                'status'    => $status,
+                'latitude'  => $request->latitude,
+                'longitude' => $request->longitude,
+                'metode'    => 'Manual', // Bisa ditambah 'Selfie' di enum nanti jika perlu
+            ]);
+
+            return response()->json([
+                'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
+                'data' => $absensiBaru
+            ]);
+        }
+
+        // --- LOGIC ABSEN PULANG ---
+        if ($absensiTerakhir->jam_pulang === null) {
+            $absensiTerakhir->update([
+                'jam_pulang' => $now
+            ]);
+
+            // FINISH EARLY LEMBUR
+            $activeLembur = \App\Models\Lembur::where('user_id', $user->id)
+                ->whereDate('tanggal', clone \Carbon\Carbon::parse($absensiTerakhir->tanggal))
+                ->where('status', 'Approved')
+                ->first();
+
+            if ($activeLembur && $now->toTimeString() < $activeLembur->jam_selesai) {
+                $activeLembur->update(['jam_selesai' => $now->toTimeString()]);
+            }
+
+            return response()->json([
+                'message' => 'Absen Selfie (Pulang) berhasil. Hati-hati di jalan!',
+                'data' => $absensiTerakhir
+            ]);
+        }
     }
 }
