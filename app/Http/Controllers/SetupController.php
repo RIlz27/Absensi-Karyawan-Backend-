@@ -115,27 +115,15 @@ class SetupController extends Controller
         ]);
     }
 
-    /**
-     * Reset all setup data to allow re-configuration.
-     */
     public function reset()
     {
-        \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
-            
-            \App\Models\User::truncate();
-            \App\Models\Kantor::truncate();
-            \App\Models\Shift::truncate();
-            \Illuminate\Support\Facades\DB::table('shift_haris')->truncate();
-            
-            \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
-            \Illuminate\Support\Facades\DB::commit();
+            // Drop all tables and re-run all migrations to ensure 100% total data wipe
+            \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true]);
 
-            return response()->json(['message' => 'Semua data berhasil direset. Silakan setup ulang.']);
+            return response()->json(['message' => 'Seluruh riwayat dan data aplikasi berhasil dihapus bersih (Wipe Out). Silakan jalankan setup ulang.']);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\DB::rollBack();
-            return response()->json(['message' => 'Gagal mereset data', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Gagal mereset data database', 'error' => $e->getMessage()], 500);
         }
     }
 }
