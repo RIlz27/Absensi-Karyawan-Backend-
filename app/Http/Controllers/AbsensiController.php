@@ -38,7 +38,7 @@ class AbsensiController extends Controller
             ->first();
 
         if (!$qr) {
-            return response()->json(['message' => 'QR Code sudah expired atau tidak valid'], 403);
+            return response()->json(['message' => 'QR Code sudah expired tidak valid'], 403);
         }
 
         // 3. AMBIL DATA KANTOR (Satu kali query untuk jarak & toleransi)
@@ -124,23 +124,23 @@ class AbsensiController extends Controller
             ]);
 
             // PILLAR 2: DYNAMIC POINT SYSTEM (Check-in Validation)
-            $pointChange = 0;
-            if ($status === 'Hadir') {
-                $pointChange = 10;
-            } elseif ($status === 'Terlambat') {
-                $pointChange = -5;
-            }
+            // $pointChange = 0;
+            // if ($status === 'Hadir') {
+            //     $pointChange = 10;
+            // } elseif ($status === 'Terlambat') {
+            //     $pointChange = -5;
+            // }
 
-            if ($pointChange !== 0) {
-                // Determine new points, minimum 0
-                $newPoints = max(0, $user->points + $pointChange);
-                $user->update(['points' => $newPoints]);
-            }
+            // if ($pointChange !== 0) {
+            //     // Determine new points, minimum 0
+            //     $newPoints = max(0, $user->points + $pointChange);
+            //     $user->update(['points' => $newPoints]);
+            // }
 
             return response()->json([
                 'message' => 'Absen masuk berhasil! Status: ' . $status,
                 'data' => $absensiBaru,
-                'points_earned' => $pointChange
+                // 'points_earned' => $pointChange
             ]);
         }
 
@@ -150,7 +150,6 @@ class AbsensiController extends Controller
                 'jam_pulang' => $now
             ]);
 
-            // PILLAR 4: FINISH EARLY LEMBUR LOGIC
             // Cek apakah ada lembur yang di-approve hari ini yang berhubungan dengan absen ini
             $activeLembur = \App\Models\Lembur::where('user_id', $user->id)
                 ->whereDate('tanggal', clone \Carbon\Carbon::parse($absensiTerakhir->tanggal))

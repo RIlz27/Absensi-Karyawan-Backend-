@@ -39,12 +39,12 @@ class User extends Authenticatable
 
     public function kantor()
     {
-        return $this->belongsTo(Kantor::class, 'kantor_id');
+        return $this->belongsTo(Kantor::class , 'kantor_id');
     }
 
     public function shifts()
     {
-        return $this->belongsToMany(Shift::class, 'user_shifts')
+        return $this->belongsToMany(Shift::class , 'user_shifts')
             ->withPivot('hari', 'kantor_id')
             ->withTimestamps();
     }
@@ -52,5 +52,32 @@ class User extends Authenticatable
     public function pointHistories()
     {
         return $this->hasMany(PointHistory::class);
+    }
+
+    public function absensis()
+    {
+        return $this->hasMany(Absensi::class);
+    }
+
+    public function izins()
+    {
+        return $this->hasMany(Izin::class);
+    }
+
+    public function cutis()
+    {
+        return $this->hasMany(Cuti::class);
+    }
+
+    // Siapa Penilai?
+    public function assessmentsGiven()
+    {
+        return $this->hasMany(Assessment::class, 'evaluator_id');
+    }
+
+    // Nilai apa saja?
+    public function assessmentsReceived()
+    {
+        return $this->hasMany(Assessment::class, 'evaluatee_id');
     }
 }

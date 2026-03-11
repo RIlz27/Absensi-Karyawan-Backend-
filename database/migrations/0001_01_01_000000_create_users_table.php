@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('password');
             $table->enum('role', ['admin', 'karyawan'])->default('karyawan');
-            $table->boolean('is_active')->default(true); // <--- Pindahin is_active ke sini
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });

@@ -15,7 +15,6 @@ class ShiftController extends Controller
         return response()->json($shifts);
     }
 
-    // 2. TAMBAHKAN INI: Untuk simpan Master Shift baru (Opsi B)
     public function store(Request $request)
     {
         $request->validate([
