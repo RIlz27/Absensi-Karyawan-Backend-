@@ -17,8 +17,8 @@ class AssessmentCategory extends Model
     ];
 
     //relasi kategori
-    public function assessmentDetails()
+    public function questions()
     {
-        return $this->hasMany(AssessmentDetail::class, 'category_id');
+        return $this->hasMany(AssessmentQuestion::class, 'category_id');
     }
 }

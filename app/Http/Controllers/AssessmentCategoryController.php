@@ -10,7 +10,12 @@ class AssessmentCategoryController extends Controller
 {
     public function index()
     {
-        $categories = AssessmentCategory::where('is_active', true)->get();
+        $categories = AssessmentCategory::with(['questions' => function ($query) {
+            $query->where('is_active', true);
+        }])
+            ->where('is_active', true)
+            ->get();
+
         return response()->json($categories);
     }
 

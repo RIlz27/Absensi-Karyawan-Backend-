@@ -5,7 +5,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\{
     AbsensiController, AuthController, QrCodeController,
     KantorController, UserController, LaporanController, ShiftController,
-    CutiController, IzinController, SetupController, AssessmentCategoryController, AssessmentController
+    CutiController, IzinController, SetupController, AssessmentCategoryController, AssessmentController, AssessmentQuestionController
 };
 use App\Http\Controllers\api\UserShiftController;
 use App\Models\{Shift, Kantor};
@@ -40,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('assessment-categories', AssessmentCategoryController::class);
     Route::get('assessments/subordinates', [AssessmentController::class, 'getSubordinates']);
     Route::apiResource('assessments', AssessmentController::class)->only(['index', 'store', 'show']);
+    Route::get('/assessment-questions/category/{categoryId}', [AssessmentQuestionController::class, 'getByCategory']);
+Route::post('/assessment-questions', [AssessmentQuestionController::class, 'store']);
+Route::delete('/assessment-questions/{id}', [AssessmentQuestionController::class, 'destroy']);
 
     // --- FITUR ABSENSI ---
     Route::post('/scan', [AbsensiController::class , 'scan']);

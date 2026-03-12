@@ -102,6 +102,7 @@ class AssessmentController extends Controller
         }
 
         return response()->json($query->latest('assessment_date')->get());
+        
     }
 
     public function show($id)
