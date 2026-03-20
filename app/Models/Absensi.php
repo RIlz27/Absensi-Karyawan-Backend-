@@ -21,12 +21,13 @@ class Absensi extends Model
         'metode'
     ];
 
-    // App/Models/Absensi.php
+    // Relasi ke Shift
     public function shift()
     {
         return $this->belongsTo(Shift::class);
     }
 
+    //Relasi ke kantor
     public function kantor()
     {
         return $this->belongsTo(Kantor::class);

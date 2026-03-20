@@ -34,27 +34,19 @@ class AssessmentController extends Controller
     //simpan nilai & feedback
     public function store(Request $request)
     {
-        if (!in_array(Auth::user()->role, ['manager', 'admin'])) {
-            return response()->json(['message' => 'Hanya Manager/Admin yang bisa menilai!'], 403);
-        }
-
+        // 1. Sesuaikan Validatornya (Hapus category_id dari aturan, ganti ke question_id)
         $request->validate([
-            'evaluatee_id'  => 'required|exists:users,id',
+            'evaluatee_id'    => 'required|exists:users,id',
             'assessment_date' => 'required|date',
-            'period_type'   => 'required|in:Harian,Mingguan,Bulanan',
-            'period_name'   => 'required|string',
-            'general_notes' => 'nullable|string',
-            'is_visible'    => 'boolean',
-
-            // Validasi Array Detail Kategori 
-            'details'       => 'required|array|min:1',
-            'details.*.category_id' => 'required|exists:assessment_categories,id',
-            'details.*.score'       => 'required|numeric|min:1|max:10',
+            'period_type'     => 'required|in:Harian,Mingguan,Bulanan',
+            'period_name'     => 'required|string',
+            'details'         => 'required|array|min:1',
+            'details.*.question_id' => 'required|exists:assessment_questions,id', // Cek ke tabel pertanyaan
+            'details.*.score'       => 'required|numeric|min:1|max:5',
         ]);
 
         DB::beginTransaction();
         try {
-            // 1. Simpan Header
             $assessment = Assessment::create([
                 'evaluator_id'    => Auth::id(),
                 'evaluatee_id'    => $request->evaluatee_id,
@@ -62,23 +54,26 @@ class AssessmentController extends Controller
                 'period_type'     => $request->period_type,
                 'period_name'     => $request->period_name,
                 'general_notes'   => $request->general_notes,
-                'is_visible'      => $request->is_visible ?? true,
             ]);
 
-            // 2. Simpan Detail Nilai 
-            foreach ($request->details as $detail) {
+            // 2. Pas simpan detail, cari category_id-nya otomatis
+            foreach ($request->details as $item) {
+                // Kita cari pertanyaannya dulu buat dapet category_id-nya
+                $question = \App\Models\AssessmentQuestion::findOrFail($item['question_id']);
+
                 AssessmentDetail::create([
                     'assessment_id' => $assessment->id,
-                    'category_id'   => $detail['category_id'],
-                    'score'         => $detail['score'],
+                    'question_id'   => $item['question_id'],
+                    'category_id'   => $question->category_id, // DIAMBIL OTOMATIS DARI TABEL PERTANYAAN
+                    'score'         => $item['score'],
                 ]);
             }
 
             DB::commit();
-            return response()->json(['message' => 'Penilaian berhasil disimpan!', 'data' => $assessment->load('details')], 201);
+            return response()->json(['message' => 'Mantap! Berhasil disimpan'], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Gagal menyimpan penilaian: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
@@ -102,7 +97,6 @@ class AssessmentController extends Controller
         }
 
         return response()->json($query->latest('assessment_date')->get());
-        
     }
 
     public function show($id)
@@ -111,7 +105,7 @@ class AssessmentController extends Controller
             $assessment = Assessment::with([
                 'evaluator',
                 'evaluatee',
-                'details.category' 
+                'details.category'
             ])->findOrFail($id);
 
             return response()->json($assessment);

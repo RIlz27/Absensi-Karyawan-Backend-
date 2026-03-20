@@ -14,7 +14,7 @@ class AbsensiController extends Controller
 {
     public function scan(Request $request)
     {
-        // 1. Validasi Input
+        // Validasi Input
         $request->validate([
             'kode_qr' => 'required|string',
             'latitude' => 'required|numeric',
@@ -22,7 +22,7 @@ class AbsensiController extends Controller
         ]);
 
         $now = Carbon::now();
-        $hariInggris = $now->format('l'); // Tetap simpan format Inggris untuk query DB
+        $hariInggris = $now->format('l');
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -30,8 +30,8 @@ class AbsensiController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
-
-        // 2. CEK QR VALID?
+    
+        // CEK QR VALID
         $qr = QrCode::where('kode', $request->kode_qr)
             ->where('is_active', true)
             ->where('expired_at', '>', $now)
@@ -41,14 +41,13 @@ class AbsensiController extends Controller
             return response()->json(['message' => 'QR Code sudah expired tidak valid'], 403);
         }
 
-        // 3. AMBIL DATA KANTOR (Satu kali query untuk jarak & toleransi)
+        // AMBIL DATA KANTOR 
         $kantor = Kantor::find($qr->kantor_id);
         if (!$kantor) {
             return response()->json(['message' => 'Data kantor tidak ditemukan'], 404);
         }
 
-        // 4. CEK SHIFT USER HARI INI
-        // Gunakan $hariInggris agar cocok dengan isi seeder/database
+        // CEK SHIFT USER HARI INI
         $shiftUser = $user->shifts()
             ->wherePivot('hari', $hariInggris)
             ->wherePivot('kantor_id', $qr->kantor_id)
@@ -65,7 +64,7 @@ class AbsensiController extends Controller
             ], 403);
         }
 
-        // 5. CEK JARAK GPS (Haversine)
+        // CEK JARAK GPS 
         $distance = $this->haversine(
             $request->latitude,
             $request->longitude,
@@ -81,37 +80,29 @@ class AbsensiController extends Controller
             ], 403);
         }
 
-        // 6. LOGIC ABSENSI (MASUK / PULANG) LINTAS HARI
-        // Cari absensi terakhir dalam 24 jam terakhir untuk mengakomodasi lembur lintas hari
+        // 4. Logic Masuk atau Pulang (Check Last 24h)
         $absensiTerakhir = Absensi::where('user_id', $user->id)
             ->where('created_at', '>=', $now->copy()->subHours(24))
             ->orderBy('id', 'desc')
             ->first();
 
-        // JIKA: Belum ada absen sama sekali, ATAU absen terakhir sudah diselesaikan (pulang tidak null) = MASUK
+        // --- LOGIC ABSEN MASUK ---
         if (!$absensiTerakhir || $absensiTerakhir->jam_pulang !== null) {
-            
-            // PROTEKSI DOUBLE-IN: Cek apakah hari ini sudah pernah selesai (Masuk & Pulang)
-            $sudahSelesaiHariIni = Absensi::where('user_id', $user->id)
+
+            // Cek jika sudah pernah absen lengkap hari ini
+            $sudahSelesai = Absensi::where('user_id', $user->id)
                 ->whereDate('tanggal', $now->toDateString())
                 ->whereNotNull('jam_pulang')
                 ->exists();
 
-            if ($sudahSelesaiHariIni) {
-                return response()->json(['message' => 'Anda sudah absen masuk & pulang hari ini.'], 400);
-            }
+            if ($sudahSelesai) return response()->json(['message' => 'Sudah absen masuk & pulang hari ini'], 400);
 
-            // --- LOGIC ABSEN MASUK ---
+            // Hitung status keterlambatan
             $jamMasukShift = Carbon::createFromFormat('H:i:s', $shiftUser->jam_masuk);
-            
-            // AMBIL TOLERANSI DARI KANTOR
-            $toleransi = $kantor->toleransi_menit ?? 15;
-            $batasToleransi = (clone $jamMasukShift)->addMinutes($toleransi);
-
-            // Tentukan status berdasarkan waktu sekarang vs batas toleransi
+            $batasToleransi = $jamMasukShift->copy()->addMinutes($kantor->toleransi_menit ?? 15);
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
-            $absensiBaru = Absensi::create([
+            $data = Absensi::create([
                 'user_id'   => $user->id,
                 'shift_id'  => $shiftUser->id,
                 'kantor_id' => $kantor->id,
@@ -123,51 +114,24 @@ class AbsensiController extends Controller
                 'metode'    => 'QR'
             ]);
 
-            // PILLAR 2: DYNAMIC POINT SYSTEM (Check-in Validation)
-            // $pointChange = 0;
-            // if ($status === 'Hadir') {
-            //     $pointChange = 10;
-            // } elseif ($status === 'Terlambat') {
-            //     $pointChange = -5;
-            // }
-
-            // if ($pointChange !== 0) {
-            //     // Determine new points, minimum 0
-            //     $newPoints = max(0, $user->points + $pointChange);
-            //     $user->update(['points' => $newPoints]);
-            // }
-
-            return response()->json([
-                'message' => 'Absen masuk berhasil! Status: ' . $status,
-                'data' => $absensiBaru,
-                // 'points_earned' => $pointChange
-            ]);
+            return response()->json(['message' => "Absen masuk berhasil ($status)", 'data' => $data]);
         }
-
-        // JIKA: Absen terakhir ada, TETAPI jam pulangnya kosong = PULANG (Bahkan lintas hari sekalipun)
+        
+        // --- LOGIC ABSEN PULANG ---
         if ($absensiTerakhir->jam_pulang === null) {
-            $absensiTerakhir->update([
-                'jam_pulang' => $now
-            ]);
+            $absensiTerakhir->update(['jam_pulang' => $now]);
 
-            // Cek apakah ada lembur yang di-approve hari ini yang berhubungan dengan absen ini
+            // Sync dengan data lembur jika ada
             $activeLembur = \App\Models\Lembur::where('user_id', $user->id)
-                ->whereDate('tanggal', clone \Carbon\Carbon::parse($absensiTerakhir->tanggal))
+                ->whereDate('tanggal', Carbon::parse($absensiTerakhir->tanggal))
                 ->where('status', 'Approved')
                 ->first();
 
-            // Jika user pulang LEBIH CEPAT dari jadwal lembur, 
-            // potong batas jam_selesai lemburnya untuk memastikan overtime payout akurat
             if ($activeLembur && $now->toTimeString() < $activeLembur->jam_selesai) {
-                $activeLembur->update([
-                    'jam_selesai' => $now->toTimeString()
-                ]);
+                $activeLembur->update(['jam_selesai' => $now->toTimeString()]);
             }
 
-            return response()->json([
-                'message' => 'Absen pulang berhasil. Hati-hati di jalan!',
-                'data' => $absensiTerakhir
-            ]);
+            return response()->json(['message' => 'Absen pulang berhasil', 'data' => $absensiTerakhir]);
         }
     }
 
@@ -210,10 +174,10 @@ class AbsensiController extends Controller
             $className = 'bg-blue-500 text-white';
 
             if ($absen->status === 'Hadir') {
-                $color = '#22c55e'; // green
+                $color = '#22c55e'; 
                 $className = 'bg-success-500 text-white';
             } elseif ($absen->status === 'Terlambat') {
-                $color = '#eab308'; // yellow
+                $color = '#eab308'; 
                 $className = 'bg-warning-500 text-white';
             } elseif ($absen->status === 'Alfa') {
                 $color = '#ef4444'; // red
@@ -223,8 +187,8 @@ class AbsensiController extends Controller
             $events[] = [
                 'id' => $absen->id,
                 'title' => $absen->user->name . ' (' . $absen->status . ')',
-                'start' => $absen->jam_masuk ?? $absen->tanggal . 'T00:00:00', // Alfa has null jam_masuk
-                'end' => $absen->jam_pulang, // Can be null if not checked out yet
+                'start' => $absen->jam_masuk ?? $absen->tanggal . 'T00:00:00', 
+                'end' => $absen->jam_pulang,
                 'backgroundColor' => $color,
                 'borderColor' => $color,
                 'className' => $className,
@@ -281,7 +245,7 @@ class AbsensiController extends Controller
             'kantor_id' => $kantorId,
             'tanggal'   => $request->tanggal,
             'jam_masuk' => $jamMasukFull,
-            'jam_pulang'=> $jamPulangFull,
+            'jam_pulang' => $jamPulangFull,
             'status'    => $request->status,
             'latitude'  => null,
             'longitude' => null,
@@ -289,25 +253,25 @@ class AbsensiController extends Controller
         ]);
 
         // Integrate with Point System
-        $pointChange = 0;
-        if ($request->status === 'Hadir') {
-            $pointChange = 10;
-        } elseif ($request->status === 'Terlambat') {
-            $pointChange = -5;
-        } elseif ($request->status === 'Alfa') {
-            $pointChange = -20;
-        }
+        // $pointChange = 0;
+        // if ($request->status === 'Hadir') {
+        //     $pointChange = 10;
+        // } elseif ($request->status === 'Terlambat') {
+        //     $pointChange = -5;
+        // } elseif ($request->status === 'Alfa') {
+        //     $pointChange = -20;
+        // }
 
-        if ($pointChange !== 0) {
-            $newPoints = max(0, $targetUser->points + $pointChange);
-            $targetUser->update(['points' => $newPoints]);
-        }
+        // if ($pointChange !== 0) {
+        //     $newPoints = max(0, $targetUser->points + $pointChange);
+        //     $targetUser->update(['points' => $newPoints]);
+        // }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Emergency Bypass berhasil ditambahkan!',
             'data' => $absensiBaru,
-            'points_impact' => $pointChange
+            // 'points_impact' => $pointChange
         ]);
     }
 
@@ -346,7 +310,7 @@ class AbsensiController extends Controller
 
         $kantor = Kantor::find($shiftUser->pivot->kantor_id);
         if (!$kantor) {
-             $kantor = Kantor::first(); // Fallback
+            $kantor = Kantor::first(); // Fallback
         }
 
         // Cek Jarak GPS
@@ -361,12 +325,12 @@ class AbsensiController extends Controller
         // Proses Foto Base64
         $image_parts = explode(";base64,", $request->foto);
         if (count($image_parts) != 2) {
-             return response()->json(['message' => 'Format foto tidak valid'], 400); 
+            return response()->json(['message' => 'Format foto tidak valid'], 400);
         }
         $image_type_aux = explode("image/", $image_parts[0]);
         $image_type = $image_type_aux[1] ?? 'jpeg';
         $image_base64 = base64_decode($image_parts[1]);
-        
+
         $fileName = 'selfie_' . $user->id . '_' . time() . '.' . $image_type;
         // Simpan langsung (tanpa upload gallery / hapus exif inheren)
         \Illuminate\Support\Facades\Storage::disk('public')->put('absensi_selfie/' . $fileName, $image_base64);
@@ -443,7 +407,7 @@ class AbsensiController extends Controller
             }
 
             return response()->json([
-                'message' => 'Absen Selfie (Pulang) berhasil. Hati-hati di jalan!',
+                'message' => 'Absen pulang berhasil. Hati-hati di jalan!',
                 'data' => $absensiTerakhir
             ]);
         }

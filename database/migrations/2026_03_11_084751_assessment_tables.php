@@ -18,6 +18,15 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        //tabel pertanyaan
+        Schema::create('assessment_questions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('category_id')->constrained('assessment_categories')->onDelete('cascade');
+            $table->string('question_text'); // Contoh: "Datang tepat waktu setiap hari"
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+
         //table penilaian
         Schema::create('assessments', function (Blueprint $table) {
             $table->id();
