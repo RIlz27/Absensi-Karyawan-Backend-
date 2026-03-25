@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'guard' =>  'sanctum',
+        'guard' => 'api',
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
