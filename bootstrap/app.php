@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ]);
 
     $middleware->statefulApi(); // Penting buat Sanctum
+
+    // Enable CORS for API routes
+    $middleware->api([\Illuminate\Http\Middleware\HandleCors::class]);
 })
 ->withExceptions(function (Exceptions $exceptions) {
     $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {

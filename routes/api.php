@@ -17,6 +17,20 @@ Route::get('/initial-setup/check', [SetupController::class , 'check']);
 Route::post('/initial-setup', [SetupController::class , 'store']);
 Route::post('/initial-setup/reset', [SetupController::class , 'reset']);
 
+// Endpoint khusus untuk serve avatar image melewati ngrok (menggunakan middleware API untuk CORS)
+Route::get('/serve-image/{path}', function ($path) {
+    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+        $file = \Illuminate\Support\Facades\Storage::disk('public')->path($path);
+        $mimeType = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path);
+        return response()->file($file, [
+            'Content-Type' => $mimeType,
+            'Access-Control-Allow-Origin' => '*',
+            'ngrok-skip-browser-warning' => '69420'
+        ]);
+    }
+    return response()->json(['message' => 'Image not found'], 404);
+})->where('path', '.*');
+
 // 2. PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
 
