@@ -10,4 +10,3 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:mark-alfa-daily')->dailyAt('23:55');
 Schedule::command('app:auto-clock-out-stale')->hourly();
-Schedule::command('app:reset-monthly-points')->monthlyOn(1, '00:00');

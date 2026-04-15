@@ -4,5 +4,5 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$users = App\Models\User::all(['id', 'name', 'avatar'])->toArray();
-echo json_encode($users, JSON_PRETTY_PRINT);
+$shifts = \App\Models\Shift::all();
+echo $shifts->toJson();

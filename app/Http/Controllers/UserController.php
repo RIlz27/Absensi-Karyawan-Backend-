@@ -69,6 +69,29 @@ class UserController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'role' => 'sometimes|in:admin,karyawan,manager',
+            'kantor_id' => 'sometimes|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $user->update($request->only(['name', 'role', 'kantor_id']));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data karyawan berhasil diupdate',
+            'user' => $user->load('kantor')
+        ]);
+    }
+
     public function destroy($id)
     {
         $user = User::findOrFail($id);

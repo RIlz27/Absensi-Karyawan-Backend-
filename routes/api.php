@@ -21,9 +21,8 @@ Route::post('/initial-setup/reset', [SetupController::class , 'reset']);
 Route::get('/serve-image/{path}', function ($path) {
     if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
         $file = \Illuminate\Support\Facades\Storage::disk('public')->path($path);
-        $mimeType = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path);
+        
         return response()->file($file, [
-            'Content-Type' => $mimeType,
             'Access-Control-Allow-Origin' => '*',
             'ngrok-skip-browser-warning' => '69420'
         ]);
@@ -101,8 +100,6 @@ Route::delete('/assessment-questions/{id}', [AssessmentQuestionController::class
     Route::put('/admin/pengumuman/{id}', [\App\Http\Controllers\PengumumanController::class , 'update']);
     Route::delete('/admin/pengumuman/{id}', [\App\Http\Controllers\PengumumanController::class , 'destroy']);
 
-    // --- LEADERBOARD & POINT SYSTEM ---
-    Route::get('/leaderboard', [\App\Http\Controllers\PointController::class , 'getLeaderboard']);
     // --- REPORTING SYSTEM ---
     Route::get('/laporan/statistik', [\App\Http\Controllers\LaporanController::class , 'getStatistik']);
     Route::get('/laporan/peringkat', [\App\Http\Controllers\LaporanController::class , 'getPeringkat']);

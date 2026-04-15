@@ -64,8 +64,10 @@ class UserShiftController extends Controller
             }
             \App\Models\UserShift::updateOrCreate(
                 [
-                    'user_id' => $userId,
-                    'hari'    => $request->hari, 
+                    'user_id'   => $userId,
+                    'hari'      => $request->hari,
+                    'kantor_id' => $request->kantor_id,
+                    'tipe'      => 'tambahan',
                 ],
                 [
                     'shift_id'  => $request->shift_id,

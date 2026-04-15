@@ -9,14 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+    public function up()
     {
-        Schema::create('point_histories', function (Blueprint $table) {
+        Schema::create('flexibility_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->integer('month');
-            $table->integer('year');
-            $table->integer('final_score');
+            $table->string('item_name');
+            $table->integer('point_cost');
+            $table->integer('stock_limit')->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('point_histories');
+        Schema::dropIfExists('flexibility_items');
     }
 };

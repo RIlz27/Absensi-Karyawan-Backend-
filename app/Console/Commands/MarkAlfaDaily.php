@@ -87,10 +87,6 @@ class MarkAlfaDaily extends Command
                 'updated_at' => now(),
             ]);
 
-            // PILLAR 2: DYNAMIC POINT SYSTEM (Alfa Deduction)
-            $newPoints = max(0, $user->points - 20);
-            $user->update(['points' => $newPoints]);
-
             $alfaCount++;
         }
 

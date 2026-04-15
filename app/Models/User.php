@@ -21,7 +21,6 @@ class User extends Authenticatable
         'kantor_id',
         'is_active',
         'avatar',
-        'points',
     ];
 
     protected $hidden = [
@@ -45,14 +44,24 @@ class User extends Authenticatable
     public function shifts()
     {
         return $this->belongsToMany(Shift::class , 'user_shifts')
-            ->withPivot('hari', 'kantor_id')
+            ->withPivot('hari', 'kantor_id', 'tipe')
             ->withTimestamps();
     }
 
-    public function pointHistories()
+    public function shiftForDay(string $day, ?int $kantorId = null)
     {
-        return $this->hasMany(PointHistory::class);
+        $query = $this->shifts()->wherePivot('hari', $day);
+
+        if ($kantorId !== null) {
+            $query->wherePivot('kantor_id', $kantorId);
+        }
+
+        return $query->orderByRaw(
+            "CASE WHEN user_shifts.tipe='biasa' THEN 0 WHEN user_shifts.tipe='tambahan' THEN 1 ELSE 2 END"
+        )->first();
     }
+
+
 
     public function absensis()
     {

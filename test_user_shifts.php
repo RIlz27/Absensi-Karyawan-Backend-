@@ -4,5 +4,5 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$shifts = \App\Models\Shift::with('hariKerja')->get();
-echo $shifts->toJson();
+$shifts = \App\Models\UserShift::all();
+echo json_encode($shifts);

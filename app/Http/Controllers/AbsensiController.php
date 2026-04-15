@@ -252,26 +252,10 @@ class AbsensiController extends Controller
             'metode'    => 'Bypass (Manual)',
         ]);
 
-        // Integrate with Point System
-        // $pointChange = 0;
-        // if ($request->status === 'Hadir') {
-        //     $pointChange = 10;
-        // } elseif ($request->status === 'Terlambat') {
-        //     $pointChange = -5;
-        // } elseif ($request->status === 'Alfa') {
-        //     $pointChange = -20;
-        // }
-
-        // if ($pointChange !== 0) {
-        //     $newPoints = max(0, $targetUser->points + $pointChange);
-        //     $targetUser->update(['points' => $newPoints]);
-        // }
-
         return response()->json([
             'status' => 'success',
             'message' => 'Emergency Bypass berhasil ditambahkan!',
             'data' => $absensiBaru,
-            // 'points_impact' => $pointChange
         ]);
     }
 
@@ -369,24 +353,9 @@ class AbsensiController extends Controller
                 'metode'    => 'Manual', // Bisa ditambah 'Selfie' di enum nanti jika perlu
             ]);
 
-            // PILLAR 2: DYNAMIC POINT SYSTEM (Selfie Validation)
-            $pointChange = 0;
-            if ($status === 'Hadir') {
-                $pointChange = 10;
-            } elseif ($status === 'Terlambat') {
-                $pointChange = -5;
-            }
-
-            if ($pointChange !== 0) {
-                // Determine new points, minimum 0
-                $newPoints = max(0, $user->points + $pointChange);
-                $user->update(['points' => $newPoints]);
-            }
-
             return response()->json([
                 'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
-                'data' => $absensiBaru,
-                'points_earned' => $pointChange
+                'data' => $absensiBaru
             ]);
         }
 
