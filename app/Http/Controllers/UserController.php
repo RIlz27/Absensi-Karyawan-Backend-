@@ -98,7 +98,17 @@ class UserController extends Controller
         if ($user->id === Auth::id()) {
             return response()->json(['message' => 'Tidak Dapat Menghapus akun Sendiri'], 403);
         }
-        $user->delete();
+        
+        \Illuminate\Support\Facades\DB::transaction(function () use ($user) {
+            \App\Models\Absensi::where('user_id', $user->id)->delete();
+            \App\Models\PointLedger::where('user_id', $user->id)->delete();
+            \App\Models\UserShift::where('user_id', $user->id)->delete();
+            \App\Models\Cuti::where('user_id', $user->id)->delete();
+            \App\Models\Izin::where('user_id', $user->id)->delete();
+            \App\Models\Assessment::where('evaluator_id', $user->id)->orWhere('evaluatee_id', $user->id)->delete();
+            
+            $user->delete();
+        });
 
         return response()->json([
             'success' => true,

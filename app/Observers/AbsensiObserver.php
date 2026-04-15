@@ -15,12 +15,12 @@ class AbsensiObserver
      */
     public function created(Absensi $absensi)
     {
-        // 1. Mengambil data User untuk mengidentifikasi Role (Siswa/Karyawan)
+        // 1. Mengambil data User untuk mengidentifikasi Role
         $user = $absensi->user;
-        $role = $user->role ?? 'Karyawan'; 
+        $role = ucfirst(strtolower($user->role ?? 'Pegawai')); 
 
-        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut
-        $rules = PointRule::where('target_role', $role)->get();
+        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut (termasuk "Semua")
+        $rules = \App\Models\PointRule::whereIn('target_role', [$role, 'Semua', strtolower($role)])->get();
 
         // Memastikan data jam_masuk valid sebelum melakukan perhitungan (mencegah null exception)
         if (!$absensi->jam_masuk) return;
@@ -53,11 +53,9 @@ class AbsensiObserver
             else {
                 // Implementasi logika perhitungan selisih menit keterlambatan terhadap jadwal shift
                 if ($absensi->shift && $absensi->shift->jam_masuk) {
-                    $jadwal = Carbon::createFromFormat('H:i:s', $absensi->shift->jam_masuk);
-                    $aktual = Carbon::createFromFormat('H:i:s', $waktuAbsen);
                     
                     // Hitung selisih: Positive if aktual > jadwal (Late), Negative if aktual < jadwal (Early)
-                    $selisihMenit = $jadwal->diffInMinutes($aktual, false);
+                    $selisihMenit = (strtotime($waktuAbsen) - strtotime($absensi->shift->jam_masuk)) / 60;
                     $ruleValue = (int) $rule->condition_value;
 
                     switch ($rule->condition_operator) {
