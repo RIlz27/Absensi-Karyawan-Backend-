@@ -17,11 +17,11 @@ class GamificationController extends Controller
     public function getPointStatus(Request $request)
     {
         $user = $request->user();
-        
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'current_balance' => $user->current_points, 
+                'current_balance' => $user->current_points,
                 'history' => $user->pointLedgers()->latest('id')->take(10)->get()
             ]
         ]);
@@ -33,7 +33,7 @@ class GamificationController extends Controller
     public function getStoreItems()
     {
         $items = FlexibilityItem::all();
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $items
@@ -74,6 +74,9 @@ class GamificationController extends Controller
                 'status' => 'AVAILABLE'
             ]);
 
+            $user->current_points = $saldoBaru;
+            $user->save();
+
             DB::commit();
             return response()->json(['message' => 'Berhasil membeli item!']);
         } catch (\Exception $e) {
@@ -88,13 +91,13 @@ class GamificationController extends Controller
     public function getMyTokens(Request $request)
     {
         $tokens = UserToken::with('item')
-                    ->where('user_id', $request->user()->id)
-                    ->latest()
-                    ->get();
+            ->where('user_id', $request->user()->id)
+            ->latest()
+            ->get();
 
         return response()->json([
             'status' => 'success',
             'data' => $tokens
         ]);
     }
-}           
+}

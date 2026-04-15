@@ -17,10 +17,10 @@ class AbsensiObserver
     {
         // 1. Mengambil data User untuk mengidentifikasi Role (Siswa/Karyawan)
         $user = $absensi->user;
-        $role = $user->role ?? 'Karyawan'; 
+        $role = $user->role ?? 'Karyawan';
 
-        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut
-        $rules = PointRule::where('target_role', $role)->get();
+        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut (atau untuk "Semua")
+        $rules = PointRule::whereIn('target_role', [$role, 'Semua'])->get();
 
         // Memastikan data jam_masuk valid sebelum melakukan perhitungan (mencegah null exception)
         if (!$absensi->jam_masuk) return;
@@ -31,7 +31,7 @@ class AbsensiObserver
         // 3. Melakukan iterasi untuk mencocokkan waktu absen dengan setiap aturan (PointRule)
         foreach ($rules as $rule) {
             if ($rule->condition_value === 'ALFA') continue; // Hanya diproses oleh cron job
-            
+
             $isMatch = false;
 
             // Tipe A: Aturan berbasis format Waktu/Jam (Contoh: "06:30:00")
@@ -40,55 +40,67 @@ class AbsensiObserver
 
                 switch ($rule->condition_operator) {
                     case '<':
-                        $isMatch = $waktuAbsen < $waktuRule; break;
+                        $isMatch = $waktuAbsen < $waktuRule;
+                        break;
                     case '<=':
-                        $isMatch = $waktuAbsen <= $waktuRule; break;
+                        $isMatch = $waktuAbsen <= $waktuRule;
+                        break;
                     case '>':
-                        $isMatch = $waktuAbsen > $waktuRule; break;
+                        $isMatch = $waktuAbsen > $waktuRule;
+                        break;
                     case '>=':
-                        $isMatch = $waktuAbsen >= $waktuRule; break;
+                        $isMatch = $waktuAbsen >= $waktuRule;
+                        break;
                 }
-            } 
+            }
             // Tipe B: Aturan berbasis Angka/Durasi (Contoh: Keterlambatan dalam menit)
             else {
                 // Implementasi logika perhitungan selisih menit keterlambatan terhadap jadwal shift
                 if ($absensi->shift && $absensi->shift->jam_masuk) {
                     $jadwal = Carbon::createFromFormat('H:i:s', $absensi->shift->jam_masuk);
                     $aktual = Carbon::createFromFormat('H:i:s', $waktuAbsen);
-                    
+
                     // Hitung selisih: Positive if aktual > jadwal (Late), Negative if aktual < jadwal (Early)
                     $selisihMenit = $jadwal->diffInMinutes($aktual, false);
                     $ruleValue = (int) $rule->condition_value;
 
                     switch ($rule->condition_operator) {
                         case '<':
-                            $isMatch = $selisihMenit < $ruleValue; break;
+                            $isMatch = $selisihMenit < $ruleValue;
+                            break;
                         case '<=':
-                            $isMatch = $selisihMenit <= $ruleValue; break;
+                            $isMatch = $selisihMenit <= $ruleValue;
+                            break;
                         case '>':
-                            $isMatch = $selisihMenit > $ruleValue; break;
+                            $isMatch = $selisihMenit > $ruleValue;
+                            break;
                         case '>=':
-                            $isMatch = $selisihMenit >= $ruleValue; break;
+                            $isMatch = $selisihMenit >= $ruleValue;
+                            break;
                         case '==':
-                            $isMatch = $selisihMenit == $ruleValue; break;
+                            $isMatch = $selisihMenit == $ruleValue;
+                            break;
                     }
                 }
             }
 
             // 4. Jika kondisi terpenuhi, lakukan pencatatan mutasi poin ke ledger
             if ($isMatch) {
-                // Kalkulasi saldo akhir berdasarkan modifier dari aturan yang terpenuhi
-                $saldoSekarang = $user->current_points; 
+                $saldoSekarang = $user->current_points;
                 $saldoBaru = $saldoSekarang + $rule->point_modifier;
 
-                // Mencatat transaksi ke PointLedger sebagai Audit Trail
+                // 1. Catat ke Ledger
                 PointLedger::create([
                     'user_id' => $user->id,
                     'transaction_type' => $rule->point_modifier > 0 ? 'EARN' : 'PENALTY',
                     'amount' => $rule->point_modifier,
                     'current_balance' => $saldoBaru,
-                    'description' => "Penyesuaian otomatis: Memenuhi kriteria '{$rule->rule_name}' pada tanggal {$absensi->tanggal}",
+                    'description' => "Penyesuaian otomatis: Memenuhi kriteria '{$rule->rule_name}'",
                 ]);
+
+                // 2. WAJIB: Update saldo di tabel users (Ini yang kurang!)
+                $user->current_points = $saldoBaru;
+                $user->save();
             }
         }
     }
