@@ -17,10 +17,16 @@ class AbsensiObserver
     {
         // 1. Mengambil data User untuk mengidentifikasi Role
         $user = $absensi->user;
-        $role = ucfirst(strtolower($user->role ?? 'Pegawai')); 
+        $roleStr = strtolower($user->role ?? 'karyawan'); 
+        
+        $roleAliases = [$roleStr, ucfirst($roleStr), 'Semua'];
+        if ($roleStr === 'karyawan') {
+            $roleAliases[] = 'Pegawai';
+            $roleAliases[] = 'pegawai';
+        }
 
-        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut (termasuk "Semua")
-        $rules = \App\Models\PointRule::whereIn('target_role', [$role, 'Semua', strtolower($role)])->get();
+        // 2. Mengambil semua aturan poin yang secara spesifik berlaku untuk Role tersebut
+        $rules = \App\Models\PointRule::whereIn('target_role', $roleAliases)->get();
 
         // Memastikan data jam_masuk valid sebelum melakukan perhitungan (mencegah null exception)
         if (!$absensi->jam_masuk) return;
@@ -34,8 +40,12 @@ class AbsensiObserver
             
             $isMatch = false;
 
+            // Jika ini poin dasar kehadiran
+            if ($rule->condition_value === 'HADIR') {
+                $isMatch = true;
+            }
             // Tipe A: Aturan berbasis format Waktu/Jam (Contoh: "06:30:00")
-            if (str_contains($rule->condition_value, ':')) {
+            elseif (str_contains($rule->condition_value, ':')) {
                 $waktuRule = $rule->condition_value;
 
                 switch ($rule->condition_operator) {
