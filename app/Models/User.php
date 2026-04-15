@@ -23,6 +23,8 @@ class User extends Authenticatable
         'avatar',
     ];
 
+    protected $appends = ['current_points'];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -62,6 +64,16 @@ class User extends Authenticatable
     }
 
 
+
+    public function pointLedgers()
+    {
+        return $this->hasMany(PointLedger::class);
+    }
+
+    public function getCurrentPointsAttribute()
+    {
+        return $this->pointLedgers()->latest('id')->value('current_balance') ?? 0;
+    }
 
     public function absensis()
     {
