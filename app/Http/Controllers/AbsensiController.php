@@ -48,10 +48,14 @@ class AbsensiController extends Controller
         }
 
         // CEK SHIFT USER HARI INI
-        $shiftUser = $user->shifts()
+        $shiftUserQuery = $user->shifts()
             ->wherePivot('hari', $hariInggris)
             ->wherePivot('kantor_id', $qr->kantor_id)
-            ->first();
+            ->get();
+            
+        $shiftUser = $shiftUserQuery->firstWhere('pivot.tipe', 'tambahan') 
+            ?? $shiftUserQuery->firstWhere('pivot.tipe', 'biasa') 
+            ?? $shiftUserQuery->first();
 
         if (!$shiftUser) {
             Log::error("Shift tidak ditemukan - User: {$user->id}, Hari: {$hariInggris}, Kantor: {$qr->kantor_id}");
@@ -102,6 +106,8 @@ class AbsensiController extends Controller
             $batasToleransi = $jamMasukShift->copy()->addMinutes($kantor->toleransi_menit ?? 15);
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
+            $lastLedgerId = \App\Models\PointLedger::where('user_id', $user->id)->max('id') ?? 0;
+
             $data = Absensi::create([
                 'user_id'   => $user->id,
                 'shift_id'  => $shiftUser->id,
@@ -114,7 +120,16 @@ class AbsensiController extends Controller
                 'metode'    => 'QR'
             ]);
 
-            return response()->json(['message' => "Absen masuk berhasil ($status)", 'data' => $data]);
+            $recentPoints = \App\Models\PointLedger::where('user_id', $user->id)
+                ->where('id', '>', $lastLedgerId)
+                ->get(['description', 'amount']);
+
+            return response()->json([
+                'message' => "Absen masuk berhasil ($status)", 
+                'data' => $data,
+                'points_earned' => $recentPoints,
+                'total_points_earned' => $recentPoints->sum('amount')
+            ]);
         }
         
         // --- LOGIC ABSEN PULANG ---
@@ -287,7 +302,10 @@ class AbsensiController extends Controller
         $user = Auth::user();
 
         // Cari Shift User hari ini
-        $shiftUser = $user->shifts()->wherePivot('hari', $hariInggris)->first();
+        $shiftUserQuery = $user->shifts()->wherePivot('hari', $hariInggris)->get();
+        $shiftUser = $shiftUserQuery->firstWhere('pivot.tipe', 'tambahan') 
+            ?? $shiftUserQuery->firstWhere('pivot.tipe', 'biasa') 
+            ?? $shiftUserQuery->first();
         if (!$shiftUser) {
             return response()->json(['message' => "Jadwal shift hari $hariInggris tidak ditemukan"], 403);
         }
@@ -341,6 +359,8 @@ class AbsensiController extends Controller
             $batasToleransi = (clone $jamMasukShift)->addMinutes($kantor->toleransi_menit ?? 15);
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
+            $lastLedgerId = \App\Models\PointLedger::where('user_id', $user->id)->max('id') ?? 0;
+
             $absensiBaru = Absensi::create([
                 'user_id'   => $user->id,
                 'shift_id'  => $shiftUser->id,
@@ -353,9 +373,15 @@ class AbsensiController extends Controller
                 'metode'    => 'Manual', // Bisa ditambah 'Selfie' di enum nanti jika perlu
             ]);
 
+            $recentPoints = \App\Models\PointLedger::where('user_id', $user->id)
+                ->where('id', '>', $lastLedgerId)
+                ->get(['description', 'amount']);
+
             return response()->json([
                 'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
-                'data' => $absensiBaru
+                'data' => $absensiBaru,
+                'points_earned' => $recentPoints,
+                'total_points_earned' => $recentPoints->sum('amount')
             ]);
         }
 

@@ -106,4 +106,36 @@ Route::delete('/assessment-questions/{id}', [AssessmentQuestionController::class
     Route::get('/laporan/harian', [\App\Http\Controllers\LaporanController::class , 'getLaporanHarian']);
     Route::get('/laporan/bulanan', [\App\Http\Controllers\LaporanController::class , 'getLaporanBulanan']);
     Route::get('/laporan/export/{type}', [\App\Http\Controllers\LaporanController::class , 'exportLaporan']);
+    
+    // --- GAMIFICATION (POIN & TOKEN) ---
+    Route::get('/gamification/points', [\App\Http\Controllers\Api\GamificationController::class, 'getPointStatus']);
+    Route::get('/gamification/store', [\App\Http\Controllers\Api\GamificationController::class, 'getStoreItems']);
+    Route::post('/gamification/buy/{itemId}', [\App\Http\Controllers\Api\GamificationController::class, 'buyItem']);
+    Route::get('/gamification/my-tokens', [\App\Http\Controllers\Api\GamificationController::class, 'getMyTokens']);
+
+    // --- GAMIFICATION (ADMIN SIDE) ---
+    Route::prefix('admin/gamification')->group(function () {
+        // Manajemen Rules
+        Route::get('/rules', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getRules']);
+        Route::post('/rules', [\App\Http\Controllers\Api\AdminGamificationController::class, 'storeRule']);
+        Route::put('/rules/{id}', [\App\Http\Controllers\Api\AdminGamificationController::class, 'updateRule']);
+        Route::delete('/rules/{id}', [\App\Http\Controllers\Api\AdminGamificationController::class, 'destroyRule']);
+
+        // Manajemen Items (Toko)
+        Route::get('/items', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getItems']);
+        Route::post('/items', [\App\Http\Controllers\Api\AdminGamificationController::class, 'storeItem']);
+        Route::put('/items/{id}', [\App\Http\Controllers\Api\AdminGamificationController::class, 'updateItem']);
+        Route::delete('/items/{id}', [\App\Http\Controllers\Api\AdminGamificationController::class, 'destroyItem']);
+
+        // Audit Trail Poin
+        Route::get('/ledgers', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getLedgers']);
+
+        // Manual Poin Kasir (Penyesuaian Manual Karyawan)
+        Route::post('/manual-points', [\App\Http\Controllers\Api\AdminGamificationController::class, 'manualPointAdjustment']);
+
+        // Validasi Voucher Karyawan
+        Route::get('/tokens', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getTokens']);
+        Route::post('/tokens/{id}/use', [\App\Http\Controllers\Api\AdminGamificationController::class, 'markTokenUsed']);
+    });
 });
+

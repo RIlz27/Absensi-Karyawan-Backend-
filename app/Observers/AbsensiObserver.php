@@ -30,6 +30,8 @@ class AbsensiObserver
 
         // 3. Melakukan iterasi untuk mencocokkan waktu absen dengan setiap aturan (PointRule)
         foreach ($rules as $rule) {
+            if ($rule->condition_value === 'ALFA') continue; // Hanya diproses oleh cron job
+            
             $isMatch = false;
 
             // Tipe A: Aturan berbasis format Waktu/Jam (Contoh: "06:30:00")
@@ -49,7 +51,28 @@ class AbsensiObserver
             } 
             // Tipe B: Aturan berbasis Angka/Durasi (Contoh: Keterlambatan dalam menit)
             else {
-                // TODO: Implementasi logika perhitungan selisih menit keterlambatan terhadap jadwal shift
+                // Implementasi logika perhitungan selisih menit keterlambatan terhadap jadwal shift
+                if ($absensi->shift && $absensi->shift->jam_masuk) {
+                    $jadwal = Carbon::createFromFormat('H:i:s', $absensi->shift->jam_masuk);
+                    $aktual = Carbon::createFromFormat('H:i:s', $waktuAbsen);
+                    
+                    // Hitung selisih: Positive if aktual > jadwal (Late), Negative if aktual < jadwal (Early)
+                    $selisihMenit = $jadwal->diffInMinutes($aktual, false);
+                    $ruleValue = (int) $rule->condition_value;
+
+                    switch ($rule->condition_operator) {
+                        case '<':
+                            $isMatch = $selisihMenit < $ruleValue; break;
+                        case '<=':
+                            $isMatch = $selisihMenit <= $ruleValue; break;
+                        case '>':
+                            $isMatch = $selisihMenit > $ruleValue; break;
+                        case '>=':
+                            $isMatch = $selisihMenit >= $ruleValue; break;
+                        case '==':
+                            $isMatch = $selisihMenit == $ruleValue; break;
+                    }
+                }
             }
 
             // 4. Jika kondisi terpenuhi, lakukan pencatatan mutasi poin ke ledger
