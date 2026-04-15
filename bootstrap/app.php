@@ -12,14 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
     health: '/up',
     )
 ->withMiddleware(function (Middleware $middleware): void {
+    // $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class); // Dihapus karena otomatis di Laravel 11/12
+
     $middleware->validateCsrfTokens(except: [
         'api/*', // Biar API nggak kena blokir CSRF
     ]);
 
     $middleware->statefulApi(); // Penting buat Sanctum
-
-    // Enable CORS for API routes
-    $middleware->api([\Illuminate\Http\Middleware\HandleCors::class]);
 })
 ->withExceptions(function (Exceptions $exceptions) {
     $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
