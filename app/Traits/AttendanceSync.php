@@ -69,31 +69,22 @@ trait AttendanceSync {
                 'longitude' => 0,
             ]);
 
-            // Potong saldo poin untuk Alfa (Penalti Otomatis)
-            $saldoSekarang = $user->points;
-            $dendaAlfa = -20; // Default fallback
-            
+            // Ambil Penalti Alfa dari Aturan Poin (Gamification)
             $role = $user->role ?? 'karyawan';
-            // Cek apakah ada Aturan Khusus Alfa di Gamification
             $alfaRule = PointRule::where('condition_value', 'ALFA')
                         ->whereIn('target_role', [$role, 'Semua'])
                         ->first();
                         
-            // Safety check: Jika rule ALFA tidak ada, pakai default -20
-            $dendaAlfa = $alfaRule ? $alfaRule->point_modifier : -20;
-            $ruleName = $alfaRule ? $alfaRule->rule_name : "Penalti: Tidak Masuk Kerja (Alfa)";
-                        
             if ($alfaRule) {
-                $dendaAlfa = $alfaRule->point_modifier;
-            }
-
-            if ($dendaAlfa != 0) {
+                $dendaAlfa = $alfaRule->point_modifier; // Nilai negatif dari DB (ex: -50)
+                $saldoSekarang = $user->points ?? 0;
+                
                 PointLedger::create([
                     'user_id' => $user->id,
                     'transaction_type' => 'PENALTY',
                     'amount' => $dendaAlfa,
                     'current_balance' => $saldoSekarang + $dendaAlfa,
-                    'description' => $ruleName . " pada " . $today->toDateString(),
+                    'description' => $alfaRule->rule_name . " pada " . $today->toDateString(),
                 ]);
 
                 $user->update(['points' => $saldoSekarang + $dendaAlfa]);

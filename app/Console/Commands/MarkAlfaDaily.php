@@ -72,47 +72,44 @@ class MarkAlfaDaily extends Command
             if ($hasCuti) continue;
 
             // Tandai Alfa karena tidak ada keterangan
-            DB::table('absensi')->insert([
-                'user_id' => $user->id,
-                'shift_id' => $shiftToday->id,
-                'kantor_id' => $shiftToday->pivot->kantor_id ?? $user->kantor_id,
-                'tanggal' => $today->format('Y-m-d'),
-                'jam_masuk' => null,
-                'jam_pulang' => null,
-                'latitude' => 0,  // Absensi mewajibkan int, Alfa = 0 fallback
-                'longitude' => 0, 
-                'status' => 'Alfa',
-                'metode' => 'Manual',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Potong saldo poin untuk Alfa (Penalti Otomatis)
-            $saldoSekarang = $user->points;
-            $dendaAlfa = -20; // Default fallback
-            
-            $role = $user->role ?? 'karyawan';
-            // Cek apakah ada Aturan Khusus Alfa di Gamification
-            $alfaRule = \App\Models\PointRule::where('condition_value', 'ALFA')
-                        ->whereIn('target_role', [$role, 'Semua'])
-                        ->first();
-                        
-            if ($alfaRule) {
-                $dendaAlfa = $alfaRule->point_modifier;
-            }
-            
-            if ($dendaAlfa !== 0) {
-                \App\Models\PointLedger::create([
+            DB::transaction(function() use ($user, $shiftToday, $today) {
+                DB::table('absensi')->insert([
                     'user_id' => $user->id,
-                    'transaction_type' => 'PENALTY',
-                    'amount' => $dendaAlfa,
-                    'current_balance' => $saldoSekarang + $dendaAlfa,
-                    'description' => ($alfaRule ? $alfaRule->rule_name : "Penalti Otomatis: Tidak Masuk Kerja (Alfa)") . " pada " . $today->format('Y-m-d'),
+                    'shift_id' => $shiftToday->id,
+                    'kantor_id' => $shiftToday->pivot->kantor_id ?? $user->kantor_id,
+                    'tanggal' => $today->format('Y-m-d'),
+                    'jam_masuk' => null,
+                    'jam_pulang' => null,
+                    'latitude' => 0,
+                    'longitude' => 0, 
+                    'status' => 'Alfa',
+                    'metode' => 'Manual',
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
 
-                // UPDATE SALDO POIN USER
-                $user->update(['points' => $saldoSekarang + $dendaAlfa]);
-            }
+                // Ambil Penalti Alfa dari Aturan Poin (Gamification)
+                $role = $user->role ?? 'karyawan';
+                $alfaRule = \App\Models\PointRule::where('condition_value', 'ALFA')
+                            ->whereIn('target_role', [$role, 'Semua'])
+                            ->first();
+                            
+                if ($alfaRule) {
+                    $dendaAlfa = $alfaRule->point_modifier;
+                    $saldoSekarang = $user->points ?? 0;
+                    
+                    \App\Models\PointLedger::create([
+                        'user_id' => $user->id,
+                        'transaction_type' => 'PENALTY',
+                        'amount' => $dendaAlfa,
+                        'current_balance' => $saldoSekarang + $dendaAlfa,
+                        'description' => $alfaRule->rule_name . " pada " . $today->format('Y-m-d'),
+                    ]);
+
+                    // UPDATE SALDO POIN USER
+                    $user->update(['points' => $saldoSekarang + $dendaAlfa]);
+                }
+            });
 
             $alfaCount++;
         }
