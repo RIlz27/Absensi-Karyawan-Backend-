@@ -8,6 +8,8 @@ class FlexibilityItem extends Model
 {
     protected $fillable = [
         'item_name', 
+        'type',
+        'value',
         'point_cost', 
         'stock_limit'
     ];

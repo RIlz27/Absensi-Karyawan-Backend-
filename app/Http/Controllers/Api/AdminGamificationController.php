@@ -51,6 +51,8 @@ class AdminGamificationController extends Controller
     public function storeItem(Request $request) {
         $validated = $request->validate([
             'item_name' => 'required|string',
+            'type' => 'required|in:LATE_EXEMPTION,OTHER',
+            'value' => 'required|integer',
             'point_cost' => 'required|integer',
             'stock_limit' => 'nullable|integer',
         ]);
@@ -60,7 +62,14 @@ class AdminGamificationController extends Controller
 
     public function updateItem(Request $request, $id) {
         $item = FlexibilityItem::findOrFail($id);
-        $item->update($request->all());
+        $validated = $request->validate([
+            'item_name' => 'sometimes|string',
+            'type' => 'sometimes|in:LATE_EXEMPTION,OTHER',
+            'value' => 'sometimes|integer',
+            'point_cost' => 'sometimes|integer',
+            'stock_limit' => 'nullable|integer',
+        ]);
+        $item->update($validated);
         return response()->json(['message' => 'Item berhasil diupdate', 'data' => $item]);
     }
 
@@ -79,7 +88,29 @@ class AdminGamificationController extends Controller
     }
 
     // ==========================================
-    // 4. MANAJEMEN INVENTORY KARYAWAN 
+    // 4. ANALITIK INTEGRITAS (LEADERBOARD)
+    // ==========================================
+    public function getLeaderboard() {
+        // Top 10 High Points
+        $top = \App\Models\User::orderBy('points', 'desc')
+            ->where('role', '!=', 'admin')
+            ->take(10)
+            ->get(['id', 'name', 'points', 'avatar', 'role']);
+
+        // Bottom 10 Low Points
+        $bottom = \App\Models\User::orderBy('points', 'asc')
+            ->where('role', '!=', 'admin')
+            ->take(10)
+            ->get(['id', 'name', 'points', 'avatar', 'role']);
+
+        return response()->json([
+            'top' => $top,
+            'bottom' => $bottom
+        ]);
+    }
+
+    // ==========================================
+    // 5. MANAJEMEN INVENTORY KARYAWAN 
     // ==========================================
     public function getTokens() {
         // Narik semua token karyawan beserta detail user dan barangnya
@@ -100,7 +131,7 @@ class AdminGamificationController extends Controller
     }
 
     // ==========================================
-    // 5. MANUAL POINT ADJUSTMENT (KASIR POIN)
+    // 6. MANUAL POINT ADJUSTMENT (KASIR POIN)
     // ==========================================
     public function manualPointAdjustment(Request $request) {
         $validated = $request->validate([
@@ -110,7 +141,7 @@ class AdminGamificationController extends Controller
         ]);
 
         $user = \App\Models\User::findOrFail($validated['user_id']);
-        $saldoSekarang = $user->current_points;
+        $saldoSekarang = $user->points; // Use points column
         $amount = (int) $validated['amount'];
 
         \App\Models\PointLedger::create([
@@ -121,9 +152,13 @@ class AdminGamificationController extends Controller
             'description' => "Penyesuaian Manual: " . $validated['reason'],
         ]);
 
+        // FIX: Update the points column in the users table
+        $user->points = $saldoSekarang + $amount;
+        $user->save();
+
         return response()->json([
             'message' => 'Poin berhasil disesuaikan secara manual!',
-            'new_balance' => $saldoSekarang + $amount
+            'new_balance' => $user->points
         ]);
     }
 }

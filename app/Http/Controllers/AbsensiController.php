@@ -9,9 +9,12 @@ use App\Models\QrCode;
 use App\Models\Kantor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class AbsensiController extends Controller
 {
+    use \App\Traits\AttendanceSync;
+
     public function scan(Request $request)
     {
         // Validasi Input
@@ -106,30 +109,30 @@ class AbsensiController extends Controller
             $batasToleransi = $jamMasukShift->copy()->addMinutes($kantor->toleransi_menit ?? 15);
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
-            $lastLedgerId = \App\Models\PointLedger::where('user_id', $user->id)->max('id') ?? 0;
+            return DB::transaction(function () use ($user, $shiftUser, $kantor, $now, $status, $request) {
+                $data = Absensi::create([
+                    'user_id'   => $user->id,
+                    'shift_id'  => $shiftUser->id,
+                    'kantor_id' => $kantor->id,
+                    'tanggal'   => $now->toDateString(),
+                    'jam_masuk' => $now,
+                    'status'    => $status,
+                    'latitude'  => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'metode'    => 'QR'
+                ]);
 
-            $data = Absensi::create([
-                'user_id'   => $user->id,
-                'shift_id'  => $shiftUser->id,
-                'kantor_id' => $kantor->id,
-                'tanggal'   => $now->toDateString(),
-                'jam_masuk' => $now,
-                'status'    => $status,
-                'latitude'  => $request->latitude,
-                'longitude' => $request->longitude,
-                'metode'    => 'QR'
-            ]);
+                // PROSES POIN
+                $pointsAwarded = $this->processAbsensiPoints($data, $user);
+                $totalPoints = collect($pointsAwarded)->sum('amount');
 
-            $recentPoints = \App\Models\PointLedger::where('user_id', $user->id)
-                ->where('id', '>', $lastLedgerId)
-                ->get(['description', 'amount']);
-
-            return response()->json([
-                'message' => "Absen masuk berhasil ($status)", 
-                'data' => $data,
-                'points_earned' => $recentPoints,
-                'total_points_earned' => $recentPoints->sum('amount')
-            ]);
+                return response()->json([
+                    'message' => "Absen masuk berhasil ($status)", 
+                    'data' => $data,
+                    'points_earned' => $pointsAwarded,
+                    'total_points_earned' => $totalPoints
+                ]);
+            });
         }
         
         // --- LOGIC ABSEN PULANG ---
@@ -153,6 +156,10 @@ class AbsensiController extends Controller
     public function history(Request $request)
     {
         $user = Auth::user();
+        
+        // SYNC ALFA REAL-TIME (Agar poin langsung berkurang pas dashboard dibuka)
+        $this->syncAlfaStatus($user);
+
         $month = $request->query('month', date('m'));
         $year = $request->query('year', date('Y'));
 
@@ -274,6 +281,114 @@ class AbsensiController extends Controller
         ]);
     }
 
+    private function processAbsensiPoints($absensi, $user)
+    {
+        $role = $user->role ?? 'karyawan';
+        $rules = \App\Models\PointRule::whereIn('target_role', [$role, 'Semua'])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if (!$absensi->jam_masuk || !$absensi->shift) return [];
+
+        $waktuAbsen = \Carbon\Carbon::parse($absensi->jam_masuk)->format('H:i:s');
+        $jadwalMasuk = $absensi->shift->jam_masuk;
+        
+        // Selisih menit (Positif = Telat, Negatif = Lebih Awal)
+        $selisihMenit = (strtotime($waktuAbsen) - strtotime($jadwalMasuk)) / 60;
+
+        // --- TOKEN INTERCEPTOR ---
+        if ($selisihMenit > 0) {
+            $availableToken = \App\Models\UserToken::where('user_id', $user->id)
+                ->where('status', 'AVAILABLE')
+                ->whereHas('item', function($q) use ($selisihMenit) {
+                    $q->where('type', 'LATE_EXEMPTION')
+                      ->where('value', '>=', $selisihMenit);
+                })
+                ->with('item')
+                ->first();
+
+            if ($availableToken) {
+                // Gunakan Token
+                $availableToken->update([
+                    'status' => 'USED',
+                    'used_at_attendance_id' => $absensi->id
+                ]);
+
+                // Ubah status absensi & info
+                $absensi->update([
+                    'status' => 'Hadir Tepat Waktu (Token Used)'
+                ]);
+
+                // Reset selisih menit ke 0 (menganggap tepat waktu) untuk perhitungan poin
+                $selisihMenit = 0;
+            }
+        }
+        // -------------------------
+
+        $pointsAwarded = [];
+
+        foreach ($rules as $rule) {
+            if ($rule->condition_value === 'ALFA') continue;
+
+            $isMatch = false;
+
+            if ($rule->condition_value === 'HADIR') {
+                $isMatch = true;
+            } elseif (str_contains($rule->condition_value, ':')) {
+                $waktuRule = $rule->condition_value;
+                switch ($rule->condition_operator) {
+                    case '<': $isMatch = $waktuAbsen < $waktuRule; break;
+                    case '<=': $isMatch = $waktuAbsen <= $waktuRule; break;
+                    case '>': $isMatch = $waktuAbsen > $waktuRule; break;
+                    case '>=': $isMatch = $waktuAbsen >= $waktuRule; break;
+                    case '=': $isMatch = $waktuAbsen == $waktuRule; break;
+                    case 'BETWEEN':
+                        $parts = explode(',', $waktuRule);
+                        if (count($parts) === 2) {
+                            $isMatch = $waktuAbsen >= trim($parts[0]) && $waktuAbsen <= trim($parts[1]);
+                        }
+                        break;
+                }
+            } else {
+                $ruleValue = $rule->condition_value; // Keep as string for splitting
+                switch ($rule->condition_operator) {
+                    case '<': $isMatch = $selisihMenit < (int)$ruleValue; break;
+                    case '<=': $isMatch = $selisihMenit <= (int)$ruleValue; break;
+                    case '>': $isMatch = $selisihMenit > (int)$ruleValue; break;
+                    case '>=': $isMatch = $selisihMenit >= (int)$ruleValue; break;
+                    case '=': $isMatch = $selisihMenit == (int)$ruleValue; break;
+                    case 'BETWEEN':
+                        $parts = explode(',', $ruleValue);
+                        if (count($parts) === 2) {
+                            $isMatch = $selisihMenit >= (int)trim($parts[0]) && $selisihMenit <= (int)trim($parts[1]);
+                        }
+                        break;
+                }
+            }
+
+            if ($isMatch) {
+                // Update User Balance & Create Ledger
+                $saldoBaru = $user->points + $rule->point_modifier;
+
+                $ledger = \App\Models\PointLedger::create([
+                    'user_id' => $user->id,
+                    'transaction_type' => $rule->point_modifier > 0 ? 'EARN' : 'PENALTY',
+                    'amount' => $rule->point_modifier,
+                    'current_balance' => $saldoBaru,
+                    'description' => "Penyesuaian: Memenuhi kriteria '" . $rule->rule_name . "'",
+                ]);
+
+                $user->update(['points' => $saldoBaru]);
+                $pointsAwarded[] = $ledger;
+                
+                // Break untuk menghindari double point if criteria overlap (Earliest/First Win)
+                break; 
+            }
+        }
+
+        return $pointsAwarded;
+    }
+
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {
         $earth = 6371000; // Meter
@@ -359,30 +474,30 @@ class AbsensiController extends Controller
             $batasToleransi = (clone $jamMasukShift)->addMinutes($kantor->toleransi_menit ?? 15);
             $status = $now->toTimeString() > $batasToleransi->toTimeString() ? 'Terlambat' : 'Hadir';
 
-            $lastLedgerId = \App\Models\PointLedger::where('user_id', $user->id)->max('id') ?? 0;
+            return DB::transaction(function () use ($user, $shiftUser, $kantor, $now, $status, $request) {
+                $absensiBaru = Absensi::create([
+                    'user_id'   => $user->id,
+                    'shift_id'  => $shiftUser->id,
+                    'kantor_id' => $kantor->id,
+                    'tanggal'   => $now->toDateString(),
+                    'jam_masuk' => $now,
+                    'status'    => $status,
+                    'latitude'  => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'metode'    => 'Manual', 
+                ]);
 
-            $absensiBaru = Absensi::create([
-                'user_id'   => $user->id,
-                'shift_id'  => $shiftUser->id,
-                'kantor_id' => $kantor->id,
-                'tanggal'   => $now->toDateString(),
-                'jam_masuk' => $now,
-                'status'    => $status,
-                'latitude'  => $request->latitude,
-                'longitude' => $request->longitude,
-                'metode'    => 'Manual', // Bisa ditambah 'Selfie' di enum nanti jika perlu
-            ]);
+                // PROSES POIN
+                $pointsAwarded = $this->processAbsensiPoints($absensiBaru, $user);
+                $totalPoints = collect($pointsAwarded)->sum('amount');
 
-            $recentPoints = \App\Models\PointLedger::where('user_id', $user->id)
-                ->where('id', '>', $lastLedgerId)
-                ->get(['description', 'amount']);
-
-            return response()->json([
-                'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
-                'data' => $absensiBaru,
-                'points_earned' => $recentPoints,
-                'total_points_earned' => $recentPoints->sum('amount')
-            ]);
+                return response()->json([
+                    'message' => 'Absen Selfie (Masuk) berhasil! Status: ' . $status,
+                    'data' => $absensiBaru,
+                    'points_earned' => $pointsAwarded,
+                    'total_points_earned' => $totalPoints
+                ]);
+            });
         }
 
         // --- LOGIC ABSEN PULANG ---

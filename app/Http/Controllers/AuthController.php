@@ -25,8 +25,8 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // 3. Hapus token lama biar gak menumpuk di database
-        $user->tokens()->delete();
+        // 3. Hapus token lama DITUTUP biar bisa "Double Login/Akun" (Multi-Device)
+        // $user->tokens()->delete();
 
         // 4. Buat token baru
         $token = $user->createToken('auth_token')->plainTextToken;

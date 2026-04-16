@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ]);
 
     $middleware->statefulApi(); // Penting buat Sanctum
+
+    $middleware->trustProxies(at: '*');
 })
 ->withExceptions(function (Exceptions $exceptions) {
     $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {

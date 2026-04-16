@@ -11,12 +11,17 @@ use Illuminate\Support\Facades\DB;
 
 class GamificationController extends Controller
 {
+    use \App\Traits\AttendanceSync;
+
     /**
      * 1. Lihat Saldo & Riwayat Poin
      */
     public function getPointStatus(Request $request)
     {
         $user = $request->user();
+
+        // Sync ALFA real-time agar poin berkurang pas badge poin direfresh
+        $this->syncAlfaStatus($user);
 
         return response()->json([
             'status' => 'success',
@@ -74,14 +79,17 @@ class GamificationController extends Controller
                 'status' => 'AVAILABLE'
             ]);
 
-            $user->current_points = $saldoBaru;
+            $user->points = $saldoBaru;
             $user->save();
 
             DB::commit();
             return response()->json(['message' => 'Berhasil membeli item!']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Terjadi kesalahan sistem'], 500);
+            return response()->json([
+                'message' => 'Terjadi kesalahan sistem',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 

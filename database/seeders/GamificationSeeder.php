@@ -13,34 +13,48 @@ class GamificationSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Bikin Data Pancingan Aturan Poin
+        // 1. RULE DASAR ABSENSI (Berlaku untuk SEMUA ROLE)
         PointRule::create([
-            'rule_name' => 'Tepat Waktu',
-            'target_role' => 'Karyawan', // Sesuaiin sama role yang lu pake pas login
-            'condition_operator' => '>=',
-            'condition_value' => '00:00:00', // Format jam gini biar tiap absen masuk PASTI dapet poin buat ngetes
-            'point_modifier' => 50
+            'rule_name' => 'Datang Lebih Awal / Tepat Waktu',
+            'target_role' => 'Semua', 
+            'condition_operator' => '<=',
+            'condition_value' => '0', // Kurang dari atau sama dengan 0 menit selisih (tepat waktu)
+            'point_modifier' => 15
         ]);
 
         PointRule::create([
-            'rule_name' => 'Datang Kepagian (Rajin)',
-            'target_role' => 'Karyawan',
-            'condition_operator' => '<',
-            'condition_value' => '06:30:00',
-            'point_modifier' => 20
+            'rule_name' => 'Terlambat (Masuk Poin Minimal)',
+            'target_role' => 'Semua',
+            'condition_operator' => '>',
+            'condition_value' => '0', // Lebihi 0 menit selisih
+            'point_modifier' => 5
         ]);
 
-        // 2. Bikin Data Pancingan Item Toko
+        // 2. RULE HUKUMAN / PENALTI
+        PointRule::create([
+            'rule_name' => 'Tidak Hadir (ALFA)',
+            'target_role' => 'Semua', // Terapkan ke Admin dan Karyawan
+            'condition_operator' => '=',
+            'condition_value' => 'ALFA',
+            'point_modifier' => -50
+        ]);
+
+        // 3. ITEM TOKO FLEKSIBILITAS (VOUCHER)
+        // Note: Field type & value harus sesuai dengan logika "LATE_EXEMPTION" di backend
         FlexibilityItem::create([
-            'item_name' => 'Voucher Telat 15 Menit',
-            'point_cost' => 100,
-            'stock_limit' => 5
+            'item_name' => 'Bebas Terlambat 30 Menit',
+            'point_cost' => 250,
+            'stock_limit' => null,
+            'type' => 'LATE_EXEMPTION',
+            'value' => '30'
         ]);
 
         FlexibilityItem::create([
             'item_name' => 'Tukar Kopi di Kantin',
             'point_cost' => 50,
-            'stock_limit' => null // Null artinya stoknya unlimited
+            'stock_limit' => 10,
+            'type' => 'OTHER',
+            'value' => 0
         ]);
     }
 }

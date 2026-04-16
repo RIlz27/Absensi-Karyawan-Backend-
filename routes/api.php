@@ -130,6 +130,9 @@ Route::delete('/assessment-questions/{id}', [AssessmentQuestionController::class
         // Audit Trail Poin
         Route::get('/ledgers', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getLedgers']);
 
+        // Leaderboard (Analitik Integritas)
+        Route::get('/leaderboard', [\App\Http\Controllers\Api\AdminGamificationController::class, 'getLeaderboard']);
+
         // Manual Poin Kasir (Penyesuaian Manual Karyawan)
         Route::post('/manual-points', [\App\Http\Controllers\Api\AdminGamificationController::class, 'manualPointAdjustment']);
 

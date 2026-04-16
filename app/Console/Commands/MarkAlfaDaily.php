@@ -88,11 +88,15 @@ class MarkAlfaDaily extends Command
             ]);
 
             // Potong saldo poin untuk Alfa (Penalti Otomatis)
-            $saldoSekarang = $user->current_points;
+            $saldoSekarang = $user->points;
             $dendaAlfa = -20; // Default fallback
             
+            $role = $user->role ?? 'karyawan';
             // Cek apakah ada Aturan Khusus Alfa di Gamification
-            $alfaRule = \App\Models\PointRule::where('condition_value', 'ALFA')->first();
+            $alfaRule = \App\Models\PointRule::where('condition_value', 'ALFA')
+                        ->whereIn('target_role', [$role, 'Semua'])
+                        ->first();
+                        
             if ($alfaRule) {
                 $dendaAlfa = $alfaRule->point_modifier;
             }
@@ -105,6 +109,9 @@ class MarkAlfaDaily extends Command
                     'current_balance' => $saldoSekarang + $dendaAlfa,
                     'description' => ($alfaRule ? $alfaRule->rule_name : "Penalti Otomatis: Tidak Masuk Kerja (Alfa)") . " pada " . $today->format('Y-m-d'),
                 ]);
+
+                // UPDATE SALDO POIN USER
+                $user->update(['points' => $saldoSekarang + $dendaAlfa]);
             }
 
             $alfaCount++;

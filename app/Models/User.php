@@ -21,6 +21,7 @@ class User extends Authenticatable
         'kantor_id',
         'is_active',
         'avatar',
+        'points',
     ];
 
     protected $appends = ['current_points'];
@@ -72,7 +73,7 @@ class User extends Authenticatable
 
     public function getCurrentPointsAttribute()
     {
-        return $this->pointLedgers()->latest('id')->value('current_balance') ?? 0;
+        return $this->points;
     }
 
     public function absensis()

@@ -104,6 +104,23 @@ class ShiftController extends Controller
         }
 
         $shift = Shift::findOrFail($id);
+
+        // CEK APAKAH SUDAH DIPAKAI DI PIVOT USER_SHIFTS
+        $isAssigned = DB::table('user_shifts')->where('shift_id', $id)->exists();
+        if ($isAssigned) {
+            return response()->json([
+                'message' => 'Gagal: Shift ini sedang aktif digunakan oleh karyawan. Lepas dulu jadwalnya di User Management baru hapus Master-nya.'
+            ], 422);
+        }
+
+        // CEK APAKAH ADA RIWAYAT ABSENSI
+        $hasHistory = DB::table('absensi')->where('shift_id', $id)->exists();
+        if ($hasHistory) {
+            return response()->json([
+                'message' => 'Gagal: Shift ini memiliki riwayat absensi. Gunakan fitur Arsip atau biarkan saja untuk integritas data laporan.'
+            ], 422);
+        }
+
         $shift->delete();
 
         return response()->json(['message' => 'Master Shift berhasil dihapus']);
