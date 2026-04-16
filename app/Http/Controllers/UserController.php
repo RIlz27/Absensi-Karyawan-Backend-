@@ -39,7 +39,24 @@ class UserController extends Controller
             'is_active' => true,
         ]);
 
-        return response()->json(['success' => true, 'message' => 'Berhasil!'], 201);
+        // Auto Assign Shift Default (Senin - Jumat)
+        // Mencari shift default 'Office Hour' atau ID 1 atau shift pertama yang tersedia
+        $defaultShift = \App\Models\Shift::where('nama', 'LIKE', '%Office%')->first() 
+                    ?? \App\Models\Shift::find(1) 
+                    ?? \App\Models\Shift::first();
+
+        if ($defaultShift) {
+            $workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            foreach ($workingDays as $day) {
+                $user->shifts()->attach($defaultShift->id, [
+                    'hari' => $day,
+                    'kantor_id' => $user->kantor_id,
+                    'tipe' => 'biasa'
+                ]);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Berhasil!', 'user' => $user], 201);
     }
 
     public function updateRole(Request $request, $id)

@@ -19,8 +19,8 @@ trait AttendanceSync {
         $today = Carbon::today();
         $hariInggris = $now->format('l');
 
-        // 1. Cek apakah user punya shift hari ini
-        $shiftToday = $user->shifts()->wherePivot('hari', $hariInggris)->first();
+        // 1. Cek apakah user punya shift hari ini (dengan prioritas tambahan > biasa)
+        $shiftToday = $user->shiftForDay($hariInggris);
         if (!$shiftToday) return;
 
         // 2. Cek apakah sudah lewat jam pulang

@@ -60,7 +60,7 @@ class User extends Authenticatable
         }
 
         return $query->orderByRaw(
-            "CASE WHEN user_shifts.tipe='biasa' THEN 0 WHEN user_shifts.tipe='tambahan' THEN 1 ELSE 2 END"
+            "CASE WHEN user_shifts.tipe='tambahan' THEN 0 WHEN user_shifts.tipe='biasa' THEN 1 ELSE 2 END"
         )->first();
     }
 
