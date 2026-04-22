@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class PointLedger extends Model
 {
     // Matiin updated_at karena mutasi bank nggak boleh diedit
+
+    //constanta
     const UPDATED_AT = null;
 
     protected $fillable = [

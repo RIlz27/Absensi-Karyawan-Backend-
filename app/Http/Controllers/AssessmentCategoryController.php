@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Auth;
 
 class AssessmentCategoryController extends Controller
 {
+    /**
+     * @brief Mengambil semua kategori penilaian beserta pertanyaannya.
+     * 
+     * @details Hanya mengambil kategori dan pertanyaan yang berstatus aktif.
+     * 
+     * @return \Illuminate\Http\JsonResponse Daftar kategori dan pertanyaan.
+     */
     public function index()
     {
         $categories = AssessmentCategory::with(['questions' => function ($query) {
@@ -19,7 +26,15 @@ class AssessmentCategoryController extends Controller
         return response()->json($categories);
     }
 
-    // 2. Tambah Kategori (Admin)
+    /**
+     * @brief Menambah kategori penilaian baru (Khusus Admin).
+     * 
+     * @param  \Illuminate\Http\Request $request Data kategori [name, description].
+     * @return \Illuminate\Http\JsonResponse
+     * 
+     * @retval 201 Berhasil membuat kategori.
+     * @retval 403 Akses ditolak jika bukan Admin.
+     */
     public function store(Request $request)
     {
         if (Auth::user()->role !== 'admin') {
@@ -44,7 +59,13 @@ class AssessmentCategoryController extends Controller
         ], 201);
     }
 
-    // 3. Update Kategori (Khusus Admin)
+    /**
+     * @brief Memperbarui data kategori (Khusus Admin).
+     * 
+     * @param  \Illuminate\Http\Request $request Data update.
+     * @param  int $id ID Kategori.
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function update(Request $request, $id)
     {
         if (Auth::user()->role !== 'admin') {
@@ -66,7 +87,15 @@ class AssessmentCategoryController extends Controller
         ]);
     }
 
-    // 4. Hapus Kategori (Khusus Admin)
+    /**
+     * @brief Menonaktifkan kategori penilaian (Khusus Admin).
+     * 
+     * @details Kategori tidak dihapus permanen untuk menjaga integritas data 
+     *          penilaian lama, melainkan hanya diubah status is_active menjadi false.
+     * 
+     * @param  int $id ID Kategori.
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         if (Auth::user()->role !== 'admin') {

@@ -8,14 +8,27 @@ use Illuminate\Support\Facades\Validator;
 
 class AssessmentQuestionController extends Controller
 {
-    // Ambil semua pertanyaan berdasarkan kategori
+    /**
+     * @brief Mengambil semua pertanyaan berdasarkan ID kategori.
+     * 
+     * @param  int $categoryId ID Kategori Penilaian.
+     * @return \Illuminate\Http\JsonResponse Daftar pertanyaan dalam kategori tersebut.
+     */
     public function getByCategory($categoryId)
     {
         $questions = AssessmentQuestion::where('category_id', $categoryId)->get();
         return response()->json($questions);
     }
 
-    // Simpan Pertanyaan Baru
+    /**
+     * @brief Menyimpan pertanyaan baru ke kategori tertentu.
+     * 
+     * @param  \Illuminate\Http\Request $request Data [category_id, question_text].
+     * @return \Illuminate\Http\JsonResponse status sukses dan data pertanyaan.
+     * 
+     * @retval 201 Berhasil membuat pertanyaan.
+     * @retval 422 Validasi gagal.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -36,7 +49,13 @@ class AssessmentQuestionController extends Controller
         return response()->json(['message' => 'Pertanyaan berhasil ditambah', 'data' => $question], 201);
     }
 
-    // Update Pertanyaan
+    /**
+     * @brief Memperbarui teks atau status aktif pertanyaan.
+     * 
+     * @param  \Illuminate\Http\Request $request Data update [question_text, is_active].
+     * @param  int $id ID Pertanyaan.
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function update(Request $request, $id)
     {
         $question = AssessmentQuestion::findOrFail($id);
@@ -45,7 +64,12 @@ class AssessmentQuestionController extends Controller
         return response()->json(['message' => 'Pertanyaan berhasil diupdate', 'data' => $question]);
     }
 
-    // Hapus Pertanyaan
+    /**
+     * @brief Menghapus pertanyaan secara permanen.
+     * 
+     * @param  int $id ID Pertanyaan.
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         $question = AssessmentQuestion::findOrFail($id);

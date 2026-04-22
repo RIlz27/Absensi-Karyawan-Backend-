@@ -11,7 +11,16 @@ use Illuminate\Support\Facades\DB;
 
 class AssessmentController extends Controller
 {
-    //pengecekan
+    /**
+     * @brief Mengambil daftar bawahan berdasarkan role.
+     * 
+     * @details Manager hanya dapat melihat karyawan di kantor yang sama, 
+     *          sedangkan Admin dapat melihat seluruh karyawan.
+     * 
+     * @return \Illuminate\Http\JsonResponse Daftar user dengan role karyawan.
+     * @retval 200 Berhasil mengambil data subordinates.
+     * @retval 403 Akses ditolak jika role bukan manager/admin.
+     */
     public function getSubordinates()
     {
         $user = Auth::user();
@@ -31,7 +40,21 @@ class AssessmentController extends Controller
         return response()->json(['message' => 'Akses ditolak'], 403);
     }
 
-    //simpan nilai & feedback
+    /**
+     * @brief Menyimpan hasil penilaian dan feedback karyawan.
+     * 
+     * @details Proses ini melibatkan validasi multi-input dan penyimpanan 
+     *          detail skor ke dalam tabel assessment_details. Menggunakan 
+     *          DB Transaction untuk memastikan integritas data.
+     * 
+     * @param  \Illuminate\Http\Request $request Data penilaian berisi evaluatee_id, period, dan details[score, question_id].
+     * @return \Illuminate\Http\JsonResponse Status keberhasilan penyimpanan.
+     * 
+     * @retval 201 Penilaian berhasil disimpan.
+     * @retval 500 Gagal karena kesalahan sistem atau database.
+     * 
+     * @note Fungsi ini otomatis mencari category_id berdasarkan question_id yang diinput.
+     */
     public function store(Request $request)
     {
         // 1. Sesuaikan Validatornya (Hapus category_id dari aturan, ganti ke question_id)
@@ -77,6 +100,15 @@ class AssessmentController extends Controller
         }
     }
 
+    /**
+     * @brief Mengambil riwayat penilaian.
+     * 
+     * @details Karyawan hanya bisa melihat penilaian miliknya sendiri yang sudah dipublish (is_visible).
+     *          Manager melihat penilaian yang dilakukan oleh dirinya sendiri.
+     * 
+     * @param  \Illuminate\Http\Request $request Filter opsional: period_type.
+     * @return \Illuminate\Http\JsonResponse Koleksi data Assessment beserta relasinya.
+     */
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -99,6 +131,15 @@ class AssessmentController extends Controller
         return response()->json($query->latest('assessment_date')->get());
     }
 
+    /**
+     * @brief Mengambil detail spesifik dari satu penilaian.
+     * 
+     * @param  int $id ID Assessment.
+     * @return \Illuminate\Http\JsonResponse Detail data Assessment lengkap dengan evaluator, evaluatee, dan skor per kategori.
+     * 
+     * @retval 200 Data ditemukan.
+     * @retval 500 Terjadi kesalahan saat pengambilan data.
+     */
     public function show($id)
     {
         try {

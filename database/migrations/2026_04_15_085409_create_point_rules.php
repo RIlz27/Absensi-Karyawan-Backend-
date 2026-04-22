@@ -15,6 +15,7 @@ return new class extends Migration
         $table->id();
         $table->string('rule_name');
         $table->string('target_role');
+        //swithcase
         $table->enum('condition_operator', ['<', '>', '=', '<=', '>=', 'BETWEEN']); 
         $table->string('condition_value');
         $table->integer('point_modifier'); 
